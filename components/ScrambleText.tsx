@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react'
 
-const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+'
+const characters = '!@#$%^&*()_+{}[]|;:,.<>?/~`₿¢€£¥§©®™⚡☆★⚔️✨⭐️'
 
 interface ScrambleTextProps {
   text: string
   className?: string
+  style?: React.CSSProperties
 }
 
-export default function ScrambleText({ text, className = '' }: ScrambleTextProps) {
+export default function ScrambleText({ text, className = '', style }: ScrambleTextProps) {
   const [displayText, setDisplayText] = useState('')
   const [isAnimating, setIsAnimating] = useState(false)
 
@@ -57,5 +58,5 @@ export default function ScrambleText({ text, className = '' }: ScrambleTextProps
     return () => clearInterval(interval)
   }, [text])
 
-  return <span className={className}>{displayText}</span>
+  return <span className={className} style={style}>{displayText}</span>
 } 

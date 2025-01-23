@@ -7,7 +7,7 @@ export default function Intro() {
         Hi, I'm{' '}
         <ScrambleText 
           text="Peter Bodnar" 
-          className="text-blue-600 font-bold relative"
+          className="text-blue-600 font-bold relative text-4xl"
           style={{
             textShadow: '0 0 10px rgba(37, 99, 235, 0.5), 0 0 20px rgba(37, 99, 235, 0.3)'
           }}

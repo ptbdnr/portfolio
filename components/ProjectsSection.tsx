@@ -1,4 +1,5 @@
 import SectionItem from './SectionItem'
+import { styles } from '@/styles/common'
 
 export default function ProjectsSection() {
   const projectItems = [
@@ -13,7 +14,7 @@ export default function ProjectsSection() {
 
   return (
     <section className="mb-16" id="projects">
-      <h2>Projects</h2>
+      <h2 className={styles.sectionTitle}>Projects</h2>
       {projectItems.map((item, index) => (
         <SectionItem key={index} {...item} />
       ))}

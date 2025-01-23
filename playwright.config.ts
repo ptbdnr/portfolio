@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { PlaywrightTestConfig } from '@playwright/test'
 
 /**
  * Read environment variables from file.
@@ -11,8 +12,8 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-export default defineConfig({
-  testDir: './e2e',
+const config: PlaywrightTestConfig = {
+  testDir: './tests',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -73,7 +74,9 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    port: 3000,
     reuseExistingServer: !process.env.CI,
   },
-});
+};
+
+export default config;

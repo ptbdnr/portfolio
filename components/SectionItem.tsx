@@ -1,6 +1,7 @@
 interface SectionItemProps {
   title: string
   subtitle?: string
+  organization?: string
   period?: string
   description: string
   skills: string[]
@@ -9,13 +10,15 @@ interface SectionItemProps {
 export default function SectionItem({ 
   title, 
   subtitle, 
+  organization,
   period, 
-  description, 
+  description,
   skills 
 }: SectionItemProps) {
   return (
     <div className="mb-8 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 transition-colors duration-200">
-      <h4>{title}{subtitle && ` - ${subtitle}`}</h4>
+      <h3>{title}{subtitle && ` - ${subtitle}`}</h3>
+      {organization && <p>{organization}</p>}
       {period && <p>{period}</p>}
       <p>{description}</p>
       <div className="flex flex-wrap gap-4 mt-4">
