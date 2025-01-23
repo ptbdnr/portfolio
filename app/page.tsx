@@ -2,8 +2,7 @@ import Navbar from '@/components/Navbar'
 import Intro from '@/components/Intro'
 import WorkSection from '@/components/WorkSection'
 import EducationSection from '@/components/EducationSection'
-import PatentsSection from '@/components/PatentsSection'
-import ProjectsSection from '@/components/ProjectsSection'
+// import ProjectsSection from '@/components/ProjectsSection'
 import ContactSection from '@/components/ContactSection'
 import CursorLight from '@/components/CursorLight'
 
@@ -15,8 +14,7 @@ export default function Home() {
         <Navbar />
         <Intro />
         <WorkSection />
-        <ProjectsSection />
-        {/* <PatentsSection /> */}
+        {/* <ProjectsSection /> */}
         <EducationSection />
         <ContactSection />
       </main>

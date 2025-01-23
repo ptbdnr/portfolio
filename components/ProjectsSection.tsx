@@ -2,6 +2,7 @@ import SectionItem from './SectionItem'
 import { styles } from '@/styles/common'
 
 export default function ProjectsSection() {
+    
   const projectItems = [
     {
       title: '[Project Title]',
