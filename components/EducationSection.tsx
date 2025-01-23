@@ -10,6 +10,7 @@ const EducationSection = () => {
             description: 'Developed a new metaheuristic for a vehicle scheduling problem, and a new dynamic programming algorithm for a storage allocation problem',
             skills: ['C++', 'Combinatorial Optimization', 'MILP', 'Dynamic Programming', 'Metaheuristics', 'Simulation']
         }
+        // Add more education items as needed
     ]
 
   return (

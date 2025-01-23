@@ -1,6 +1,8 @@
 import SectionItem from './SectionItem'
 import { styles } from '@/styles/common'
+
 export default function WorkSection() {
+    
   const workItems = [
     {
         title: 'Lead AI Engineer',
