@@ -16,7 +16,10 @@ export default function SectionItem({
   skills 
 }: SectionItemProps) {
   return (
-    <div className="mb-8 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 transition-colors duration-200">
+    <div className="mb-8 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 
+      border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-700
+      hover:bg-gray-100 dark:hover:bg-gray-800/80 
+      transition-all duration-200">
       <h3>{title}{subtitle && ` - ${subtitle}`}</h3>
       {organization && <p>{organization}</p>}
       {period && <p>{period}</p>}
