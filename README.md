@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Portfolio
+
+A personal portfolio website built with modern web technologies, showcasing projects and experience. This project uses [Next.js](https://nextjs.org), Redux for state management, and Playwright for end-to-end testing.
+
+## Tech Stack
+
+- **Frontend Framework**: [Next.js](https://nextjs.org)
+- **State Management**: Redux with Redux Toolkit
+- **Testing**: Playwright for E2E testing
+- **Styling**: Tailwind CSS
+- **Font**: [Geist](https://vercel.com/font) by Vercel
 
 ## Getting Started
 
-First, run the development server:
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd <your-repo-name>
+```
 
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Run the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the portfolio.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+├── app/              # Next.js app directory
+├── components/       # Reusable React components
+├── store/            # Redux store configuration and slices
+├── tests/            # Playwright E2E tests
+├── public/           # Static assets
+└── styles/           # Global styles
+```
 
-## Learn More
+## Testing
 
-To learn more about Next.js, take a look at the following resources:
+Run end-to-end tests with Playwright:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Run tests
+npm run test:e2e
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Open Playwright UI
+npm run test:e2e:ui
+```
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This portfolio is configured for deployment on [Vercel](https://vercel.com), but can be deployed on any platform that supports Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For manual deployment:
+
+```bash
+npm run build
+npm run start
+```
+
+## Contributing
+
+This is a personal portfolio project, but if you find any bugs or have suggestions for improvements, please feel free to open an issue or submit a pull request.
+
+## License
+
+[MIT License](LICENSE)

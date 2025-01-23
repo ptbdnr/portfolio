@@ -76,3 +76,13 @@ jspm_packages
 
 # Optional REPL history
 .node_repl_history
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/tests/**/*.png
+
+# Playwright
+node_modules/
+/blob-report/
