@@ -1,0 +1,15 @@
+services:
+  portfolio:
+    build: .
+    image: portfolio
+    container_name: portfolio
+    restart: unless-stopped
+    ports:
+      # NAS convention: jobhunter=418, househunt=419, portfolio=420.
+      - "420:3000"
+    env_file:
+      - .env
+    volumes:
+      # SQLite DB + pre-import backups persist here. Point at a NAS path if you
+      # prefer (e.g. /volume1/docker/portfolio/data:/data).
+      - ./data:/data

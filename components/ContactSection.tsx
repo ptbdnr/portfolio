@@ -5,7 +5,7 @@ export default function ContactSection() {
   return (
     <section className="mb-16" id="contact">
       <h2 className={styles.sectionTitle}>Get in Touch</h2>
-      <p>If you'd like to get in touch feel free to contact me below!</p>
+      <p>If you&apos;d like to get in touch feel free to contact me below!</p>
       
       <div className="flex gap-6 mt-4">
         <a
