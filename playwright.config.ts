@@ -14,6 +14,8 @@ import { PlaywrightTestConfig } from '@playwright/test'
  */
 const config: PlaywrightTestConfig = {
   testDir: './tests',
+  /* Seed a fresh test database before the suite runs. */
+  globalSetup: require.resolve('./tests/global-setup.ts'),
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -76,6 +78,11 @@ const config: PlaywrightTestConfig = {
     command: 'npm run dev',
     port: 3000,
     reuseExistingServer: !process.env.CI,
+    env: {
+      AUTH_SECRET: process.env.AUTH_SECRET ?? 'test-secret-not-for-production',
+      ADMIN_EMAILS: process.env.ADMIN_EMAILS ?? 'ptbdnr@gmail.com',
+      DATABASE_URL: process.env.DATABASE_URL ?? 'file:./data/test.db',
+    },
   },
 };
 
