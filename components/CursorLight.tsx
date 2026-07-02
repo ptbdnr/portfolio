@@ -11,7 +11,7 @@ interface GradientStyles {
   background: string
 }
 
-export default function CursorLight(): JSX.Element {
+export default function CursorLight(): React.JSX.Element {
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 })
 
   useEffect((): (() => void) => {

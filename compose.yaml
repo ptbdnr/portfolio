@@ -1,0 +1,32 @@
+# Deploy on the UGREEN NAS (UGOS Docker). See docs/deployment-public-exposure.md
+# for how to expose this to the internet via the Namecheap domain.
+services:
+  portfolio:
+    build: .
+    image: portfolio:latest
+    restart: always
+    env_file: .env
+    environment:
+      # Store the SQLite DB on the mounted volume so it survives rebuilds.
+      DATABASE_URL: file:/data/portfolio.db
+    volumes:
+      - portfolio-data:/data
+    ports:
+      # Only needed if you reach the app directly. With the Cloudflare Tunnel
+      # option you can drop this and route cloudflared to portfolio:3000 over
+      # the internal network instead.
+      - "3000:3000"
+
+  # Optional: Cloudflare Tunnel sidecar (recommended exposure path).
+  # Uncomment and set TUNNEL_TOKEN in .env to publish without opening ports.
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   restart: always
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #   depends_on:
+  #     - portfolio
+
+volumes:
+  portfolio-data:
