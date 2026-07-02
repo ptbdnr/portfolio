@@ -1,29 +1,64 @@
-import { NextResponse } from "next/server";
-import { getSessionUser, canUseChat } from "@/lib/authz";
+import { streamChat, type ChatTurn } from "@/lib/llm";
+import { auth } from "@/lib/auth";
 
-/**
- * Chat endpoint. Any authenticated user may use it; anonymous callers are
- * rejected. The actual chat backend is a stub here — wire it to your model /
- * assistant of choice.
- */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// Keep the conversation small and well-formed before it reaches the model.
+function sanitize(messages: unknown): ChatTurn[] {
+  if (!Array.isArray(messages)) return [];
+  const out: ChatTurn[] = [];
+  for (const m of messages) {
+    if (!m || typeof m !== "object") continue;
+    const role = (m as { role?: unknown }).role;
+    const content = (m as { content?: unknown }).content;
+    if (
+      (role === "user" || role === "assistant") &&
+      typeof content === "string" &&
+      content.trim()
+    ) {
+      out.push({ role, content: content.slice(0, 4000) });
+    }
+  }
+  return out.slice(-12);
+}
+
+// POST /api/chat — streams a grounded assistant reply as plain text. The model
+// API key is used only here (server), never sent to the browser.
 export async function POST(req: Request) {
-  const user = await getSessionUser();
-  if (!canUseChat(user)) {
-    return NextResponse.json(
-      { error: "Sign in to use the chat" },
-      { status: 401 },
-    );
+  // Require a signed-in user. Chat calls cost money, so this keeps bots out —
+  // enforced on the server, not just hidden in the UI.
+  const session = await auth();
+  if (!session?.user) {
+    return new Response("Please sign in to chat.", { status: 401 });
   }
 
-  const body = await req.json().catch(() => null);
-  const message =
-    body && typeof body.message === "string" ? body.message.trim() : "";
-  if (!message) {
-    return NextResponse.json({ error: "message is required" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response("Bad request", { status: 400 });
   }
 
-  // Placeholder echo response — replace with a real chat backend.
-  return NextResponse.json({
-    reply: `Hi ${user!.name ?? user!.email}, you said: ${message}`,
-  });
+  const messages = sanitize((body as { messages?: unknown })?.messages);
+  if (!messages.length || messages[messages.length - 1].role !== "user") {
+    return new Response("Expected a user message.", { status: 400 });
+  }
+
+  try {
+    const stream = await streamChat(messages);
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  } catch (e) {
+    // Most likely a missing/invalid API key — degrade gracefully.
+    const msg = e instanceof Error ? e.message : "Chat is unavailable.";
+    return new Response(`The chat assistant isn't available right now. ${msg}`, {
+      status: 503,
+    });
+  }
 }

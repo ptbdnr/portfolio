@@ -1,10 +1,12 @@
 node_modules
 .next
 .git
-.env
-.env.local
+.github
 data
-*.db
-npm-debug.log
+*.log
+.env*
+!.env.example
+README.md
 playwright-report
 test-results
+tests

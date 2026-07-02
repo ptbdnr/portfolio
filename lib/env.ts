@@ -1,20 +1,18 @@
-/**
- * Central place for reading runtime configuration.
- *
- * ADMIN_EMAILS is a comma-separated allowlist so the admin can be changed by
- * editing the container environment and restarting — no code change / redeploy.
- */
+// Server-only environment access. Secrets are read here and in other server
+// modules — never in client components, and never via NEXT_PUBLIC_* (which
+// would ship the value to the browser). A missing required key throws loudly.
 
-export const adminEmails: string[] = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
-export function isAdminEmail(email?: string | null): boolean {
-  if (!email) return false;
-  return adminEmails.includes(email.toLowerCase());
+export function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(
+      `Missing required environment variable ${name}. Set it in .env.local (dev) ` +
+        `or your compose env_file (prod). See .env.example.`
+    );
+  }
+  return v;
 }
 
-/** Absolute or relative path to the SQLite database file. */
-export const databaseUrl: string =
-  process.env.DATABASE_URL ?? "file:./data/portfolio.db";
+export function optionalEnv(name: string, fallback = ""): string {
+  return process.env[name] || fallback;
+}
