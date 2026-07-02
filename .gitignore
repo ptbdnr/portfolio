@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# local SQLite database + pre-import backups (never commit data)
+/data
+
 # dependencies
 /node_modules
 /.pnp
@@ -30,8 +33,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — never commit secrets. Catches .env, .env.local, and any
+# *.env / *.env.* naming (e.g. prd.env.prd). Only the template is committed.
 .env*
+*.env
+*.env.*
+!.env.example
 
 # vercel
 .vercel
