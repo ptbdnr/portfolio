@@ -1,12 +1,8 @@
 node_modules
-.next
-.git
-.github
+dist
 data
+.git
+.env
 *.log
-.env*
-!.env.example
-README.md
-playwright-report
-test-results
-tests
+content
+hut2hut.tar

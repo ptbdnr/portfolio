@@ -1,32 +1,43 @@
-# Deploy on the UGREEN NAS (UGOS Docker). See docs/deployment-public-exposure.md
-# for how to expose this to the internet via the Namecheap domain.
+# Hut to Hut on a NAS: made for a UGREEN DXP4800 Plus (UGOS Pro), and works on any Docker host.
+#
+# UGOS Pro: import the image first (Docker → Image → Add → Import, hut2hut.tar from `npm run image:nas`),
+# then Docker → Project → Create: pick a folder for it (for example docker/hut2hut) and paste this file.
+# See "Running it on a NAS" in README.md.
 services:
-  portfolio:
-    build: .
-    image: portfolio:latest
-    restart: always
-    env_file: .env
-    environment:
-      # Store the SQLite DB on the mounted volume so it survives rebuilds.
-      DATABASE_URL: file:/data/portfolio.db
-    volumes:
-      - portfolio-data:/data
+  site:
+    image: hut2hut:latest
+    pull_policy: never # built on your computer and imported, not downloaded
+    container_name: hut2hut
+    restart: unless-stopped
     ports:
-      # Only needed if you reach the app directly. With the Cloudflare Tunnel
-      # option you can drop this and route cloudflared to portfolio:3000 over
-      # the internal network instead.
-      - "3000:3000"
+      - "8787:8787" # the site, at http://<NAS address>:8787
+    environment:
+      TZ: Europe/London
+      # Uncomment when visitors arrive through Cloudflare Tunnel (below) or another proxy:
+      # TRUST_PROXY: "1"
+      # Email each contact-form message to you (otherwise they're kept in data/messages.jsonl):
+      # CONTACT_TO: you@example.com
+      # SMTP_HOST: smtp.example.com
+      # SMTP_PORT: "587"
+      # SMTP_USER: you@example.com
+      # SMTP_PASS: your-app-password
+    volumes:
+      - ./content:/content # blog/ (posts, Markdown) and media/ (photos, videos): add and edit these
+      - ./data:/data # contact messages, visitor counts, cleaned copies of photos
+    # The site runs as user 1000. If the log says "permission denied", put your NAS account's ids here
+    # (over SSH, `id` shows them), e.g.:
+    # user: "1000:10"
 
-  # Optional: Cloudflare Tunnel sidecar (recommended exposure path).
-  # Uncomment and set TUNNEL_TOKEN in .env to publish without opening ports.
-  # cloudflared:
+  # Optional: put the site on the internet without opening ports on your router, and without telling
+  # visitors your home's IP address (which shows roughly where you live). In the Cloudflare dashboard,
+  # Zero Trust → Networks → Tunnels → Create a tunnel (Cloudflared, Docker): copy its token here, and give
+  # it a public hostname (your domain) pointing to the service http://site:8787. Then uncomment
+  # TRUST_PROXY above.
+  # tunnel:
   #   image: cloudflare/cloudflared:latest
-  #   restart: always
+  #   restart: unless-stopped
   #   command: tunnel --no-autoupdate run
   #   environment:
-  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #     TUNNEL_TOKEN: paste-your-tunnel-token-here
   #   depends_on:
-  #     - portfolio
-
-volumes:
-  portfolio-data:
+  #     - site

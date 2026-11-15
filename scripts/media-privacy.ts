@@ -1,0 +1,301 @@
+/**
+ * Keeps location and camera details out of the photos and videos the site publishes. Phones write
+ * GPS coordinates and the time a picture was taken into every file; anyone can read them back.
+ *
+ *   node scripts/media-privacy.ts           check public/ and src/content/: lists files with metadata, exits 1 if any
+ *   node scripts/media-privacy.ts --clean   strips it in place (JPEG, PNG, WebP, SVG; MP4/MOV via ffmpeg)
+ *
+ * `npm run build` runs the check first, so nothing with a location in it goes live by accident.
+ */
+import { spawnSync } from 'node:child_process'
+import { readFile, readdir, rename, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+
+const ascii = (b: Uint8Array, from: number, len: number) => String.fromCharCode(...b.subarray(from, from + len))
+const u16 = (b: Uint8Array, at: number, le: boolean) => (le ? b[at] | (b[at + 1] << 8) : (b[at] << 8) | b[at + 1])
+const u32 = (b: Uint8Array, at: number, le = false) =>
+  (le ? b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24) : (b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0
+const concat = (parts: Uint8Array[]) => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0))
+  let at = 0
+  for (const p of parts) {
+    out.set(p, at)
+    at += p.length
+  }
+  return out
+}
+const includes = (b: Uint8Array, text: string) => Buffer.from(b.buffer, b.byteOffset, b.byteLength).includes(text, 0, 'latin1')
+
+/* ------------------------------------------------------------------- JPEG */
+
+const ORIENTATION = 0x0112
+const GPS_IFD = 0x8825
+
+/** The tags in an EXIF block's first directory, its orientation, and whether more directories follow. */
+function readExif(seg: Uint8Array) {
+  const t = 6
+  const le = ascii(seg, t, 2) === 'II'
+  const ifd = t + u32(seg, t + 4, le)
+  const n = u16(seg, ifd, le)
+  const tags: number[] = []
+  let orientation = 1
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12
+    const tag = u16(seg, e, le)
+    tags.push(tag)
+    if (tag === ORIENTATION) orientation = u16(seg, e + 8, le)
+  }
+  const next = u32(seg, ifd + 2 + n * 12, le)
+  return { tags, orientation, next }
+}
+
+/** A minimal EXIF block holding nothing but the orientation, so rotated photos still display upright. */
+function orientationOnly(orientation: number) {
+  // Big-endian TIFF header, one directory with one entry (Orientation, SHORT, 1 value), no next directory.
+  const tiff = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, 0, 0, 0, 0]
+  const body = [...Buffer.from('Exif\0\0', 'latin1'), ...tiff]
+  return new Uint8Array([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255, ...body])
+}
+
+type Segment = { marker: number; start: number; end: number }
+
+function jpegSegments(b: Uint8Array): { segments: Segment[]; scan: number } {
+  const segments: Segment[] = []
+  let at = 2
+  while (at + 4 <= b.length && b[at] === 0xff) {
+    const marker = b[at + 1]
+    if (marker === 0xda) return { segments, scan: at }
+    const end = at + 2 + u16(b, at + 2, false)
+    segments.push({ marker, start: at, end })
+    at = end
+  }
+  return { segments, scan: at }
+}
+
+function jpegFindings(b: Uint8Array) {
+  const found = new Set<string>()
+  for (const s of jpegSegments(b).segments) {
+    const seg = b.subarray(s.start + 4, s.end)
+    if (s.marker === 0xe1 && ascii(seg, 0, 6) === 'Exif\0\0') {
+      const { tags, next } = readExif(seg)
+      if (tags.includes(GPS_IFD)) found.add('GPS location')
+      if (tags.some((t) => t !== ORIENTATION) || next) found.add('EXIF (camera, time)')
+    } else if (s.marker === 0xe1) found.add('XMP')
+    else if (s.marker === 0xed) found.add('IPTC')
+    else if (s.marker === 0xfe) found.add('comment')
+  }
+  return [...found]
+}
+
+/** Keeps the image, its colour profile and orientation; drops EXIF, XMP, IPTC and comments. */
+export function stripJpeg(b: Uint8Array) {
+  const { segments, scan } = jpegSegments(b)
+  const keep: Uint8Array[] = [b.subarray(0, 2)]
+  let orientation = 1
+  for (const s of segments) {
+    const seg = b.subarray(s.start + 4, s.end)
+    if (s.marker === 0xe1 && ascii(seg, 0, 6) === 'Exif\0\0') {
+      orientation = readExif(seg).orientation
+      continue
+    }
+    const isIcc = s.marker === 0xe2 && ascii(seg, 0, 11) === 'ICC_PROFILE'
+    const metadata = s.marker === 0xe1 || s.marker === 0xed || s.marker === 0xfe || (s.marker >= 0xe2 && s.marker <= 0xef && s.marker !== 0xee && !isIcc)
+    if (!metadata) keep.push(b.subarray(s.start, s.end))
+  }
+  // Right after the JFIF header if there is one.
+  if (orientation > 1 && orientation <= 8) keep.splice(keep[1]?.[1] === 0xe0 ? 2 : 1, 0, orientationOnly(orientation))
+  keep.push(b.subarray(scan))
+  return concat(keep)
+}
+
+/* -------------------------------------------------------------------- PNG */
+
+const PNG_METADATA = new Set(['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME'])
+
+function pngChunks(b: Uint8Array) {
+  const chunks: { type: string; start: number; end: number }[] = []
+  for (let at = 8; at + 12 <= b.length; ) {
+    const end = at + 12 + u32(b, at)
+    chunks.push({ type: ascii(b, at + 4, 4), start: at, end })
+    at = end
+  }
+  return chunks
+}
+
+/** Drops EXIF, text (where XMP lives) and timestamp chunks. */
+export function stripPng(b: Uint8Array) {
+  return concat([b.subarray(0, 8), ...pngChunks(b).filter((c) => !PNG_METADATA.has(c.type)).map((c) => b.subarray(c.start, c.end))])
+}
+
+/* ------------------------------------------------------------------- WebP */
+
+function webpChunks(b: Uint8Array) {
+  const chunks: { type: string; start: number; end: number }[] = []
+  for (let at = 12; at + 8 <= b.length; ) {
+    const size = u32(b, at + 4, true)
+    const end = at + 8 + size + (size & 1)
+    chunks.push({ type: ascii(b, at, 4), start: at, end })
+    at = end
+  }
+  return chunks
+}
+
+/** Drops the EXIF and XMP chunks (and their flags in the header). */
+export function stripWebp(b: Uint8Array) {
+  const body = webpChunks(b)
+    .filter((c) => c.type !== 'EXIF' && c.type !== 'XMP ')
+    .map((c) => {
+      const chunk = b.slice(c.start, c.end)
+      if (c.type === 'VP8X') chunk[8] &= ~0x0c
+      return chunk
+    })
+  const out = concat([b.slice(0, 12), ...body])
+  new DataView(out.buffer).setUint32(4, out.length - 8, true)
+  return out
+}
+
+/* ------------------------------------------------------------ MP4 / MOV */
+
+/** Boxes that hold metadata (directly or further down). */
+const MP4_CONTAINERS = new Set(['moov', 'trak', 'udta', 'meta', 'ilst'])
+
+/** Box types found in the movie's metadata, plus the QuickTime metadata key names. */
+function mp4Metadata(b: Uint8Array, from = 0, to = b.length, found = { types: new Set<string>(), keys: '' }) {
+  for (let at = from; at + 8 <= to; ) {
+    let size = u32(b, at)
+    const type = ascii(b, at + 4, 4)
+    let header = 8
+    if (size === 1) {
+      size = u32(b, at + 8) * 2 ** 32 + u32(b, at + 12)
+      header = 16
+    } else if (size === 0) size = to - at
+    if (size < header || at + size > to) break
+    found.types.add(type)
+    if (type === 'keys') found.keys += ascii(b, at + header, Math.min(size - header, 4096))
+    if (MP4_CONTAINERS.has(type)) {
+      // An MP4 'meta' box has 4 bytes of version and flags before its children; a QuickTime one doesn't.
+      const skip = type === 'meta' && ascii(b, at + header + 4, 4) !== 'hdlr' ? 4 : 0
+      mp4Metadata(b, at + header + skip, at + size, found)
+    }
+    at += size
+  }
+  return found
+}
+
+function videoFindings(b: Uint8Array) {
+  const { types, keys } = mp4Metadata(b)
+  const found: string[] = []
+  // 3GPP 'loci' (ffmpeg, some Android phones), '©xyz' (Android, older iPhones), ISO 6709 keys (iPhone).
+  if (types.has('loci') || types.has('\u00a9xyz') || keys.includes('location')) found.push('GPS location')
+  if (types.has('\u00a9mak') || types.has('\u00a9mod') || keys.includes('quicktime.make') || keys.includes('quicktime.model')) found.push('camera')
+  return found
+}
+
+/**
+ * Where a movie's metadata boxes start ('udta' and 'meta', at the top level or in 'moov' and
+ * 'trak'): every place the location and camera details can be. Renaming them to 'free' (padding
+ * that players skip) removes the details without moving anything else, so the video still plays.
+ */
+export function mp4MetadataBoxes(b: Uint8Array, from = 0, to = b.length, found: number[] = []) {
+  for (let at = from; at + 8 <= to; ) {
+    let size = u32(b, at)
+    const type = ascii(b, at + 4, 4)
+    let header = 8
+    if (size === 1) {
+      size = u32(b, at + 8) * 2 ** 32 + u32(b, at + 12)
+      header = 16
+    } else if (size === 0) size = to - at
+    if (size < header || at + size > to) break
+    if (type === 'udta' || type === 'meta') found.push(at)
+    else if (type === 'moov' || type === 'trak') mp4MetadataBoxes(b, at + header, at + size, found)
+    at += size
+  }
+  return found
+}
+
+/* ------------------------------------------------------------- everything */
+
+export const VIDEO = new Set(['.mp4', '.m4v', '.mov'])
+/** Files that can carry personal metadata (others, like WebM video, are passed as they are). */
+export const MEDIA = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg', '.heic', '.heif', '.tif', '.tiff', ...VIDEO])
+
+/** What personal metadata a file carries (empty when it's clean). */
+export function findMetadata(b: Uint8Array, ext: string): string[] {
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return jpegFindings(b)
+    case '.png':
+      return [...new Set(pngChunks(b).filter((c) => PNG_METADATA.has(c.type)).map((c) => (c.type === 'eXIf' ? 'EXIF' : c.type === 'tIME' ? 'timestamp' : 'text')))]
+    case '.webp':
+      return webpChunks(b)
+        .filter((c) => c.type === 'EXIF' || c.type === 'XMP ')
+        .map((c) => c.type.trim())
+    case '.svg':
+      return includes(b, '<metadata') || includes(b, 'sodipodi:docname') || includes(b, 'export-filename') ? ['editor metadata (may include file paths)'] : []
+    case '.heic':
+    case '.heif':
+    case '.tif':
+    case '.tiff':
+      return ['not a web format: convert to JPEG or WebP first']
+    default:
+      return VIDEO.has(ext) ? videoFindings(b) : []
+  }
+}
+
+export function stripMetadata(b: Uint8Array, ext: string): Uint8Array {
+  if (ext === '.jpg' || ext === '.jpeg') return stripJpeg(b)
+  if (ext === '.png') return stripPng(b)
+  if (ext === '.webp') return stripWebp(b)
+  if (ext === '.svg') {
+    const text = Buffer.from(b)
+      .toString('utf8')
+      .replace(/<metadata[\s\S]*?<\/metadata>/g, '')
+      .replace(/\s(?:sodipodi:docname|inkscape:export-filename|inkscape:export-xdpi|inkscape:export-ydpi)="[^"]*"/g, '')
+    return new Uint8Array(Buffer.from(text, 'utf8'))
+  }
+  return b
+}
+
+async function mediaFiles(dirs: string[]) {
+  const files: string[] = []
+  for (const dir of dirs) {
+    const entries = await readdir(dir, { recursive: true, withFileTypes: true }).catch(() => [])
+    for (const e of entries) {
+      if (e.isFile() && MEDIA.has(path.extname(e.name).toLowerCase())) files.push(path.join(e.parentPath, e.name))
+    }
+  }
+  return files.sort()
+}
+
+async function stripVideo(file: string) {
+  const tmp = `${file}.clean${path.extname(file)}`
+  const run = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', file, '-map', '0', '-map_metadata', '-1', '-map_chapters', '-1', '-c', 'copy', '-movflags', '+faststart', tmp])
+  if (run.error || run.status !== 0) throw new Error(`ffmpeg is needed to clean videos (${file})`)
+  await rename(tmp, file)
+}
+
+async function main() {
+  const clean = process.argv.includes('--clean')
+  const files = await mediaFiles(['public', 'src/content'])
+  const dirty: string[] = []
+  for (const file of files) {
+    const ext = path.extname(file).toLowerCase()
+    let found = findMetadata(await readFile(file), ext)
+    if (found.length && clean && !ext.startsWith('.he') && !ext.startsWith('.ti')) {
+      if (VIDEO.has(ext)) await stripVideo(file)
+      else await writeFile(file, stripMetadata(await readFile(file), ext))
+      found = findMetadata(await readFile(file), ext)
+      if (!found.length) console.log(`cleaned  ${file}`)
+    }
+    if (found.length) dirty.push(`  ${file}: ${found.join(', ')}`)
+  }
+  if (dirty.length) {
+    console.error(`These files carry personal metadata (such as where a photo was taken):\n${dirty.join('\n')}`)
+    if (!clean) console.error('Run `npm run media:clean` to remove it.')
+    process.exit(1)
+  }
+  console.log(`media privacy: ${files.length} file${files.length === 1 ? '' : 's'} checked, no location or camera metadata`)
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) await main()

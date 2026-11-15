@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" width="480" height="300" shape-rendering="crispEdges" font-family="monospace" font-size="12" fill="#c9d6e3">
+<rect width="480" height="300" fill="#10142c"/>
+<line x1="56" y1="20" x2="56" y2="256" stroke="#333c57"/>
+<text x="56" y="274" text-anchor="middle">10^0</text>
+<line x1="158" y1="20" x2="158" y2="256" stroke="#333c57"/>
+<text x="158" y="274" text-anchor="middle">10^1</text>
+<line x1="260" y1="20" x2="260" y2="256" stroke="#333c57"/>
+<text x="260" y="274" text-anchor="middle">10^2</text>
+<line x1="362" y1="20" x2="362" y2="256" stroke="#333c57"/>
+<text x="362" y="274" text-anchor="middle">10^3</text>
+<line x1="464" y1="20" x2="464" y2="256" stroke="#333c57"/>
+<text x="464" y="274" text-anchor="middle">10^4</text>
+<line x1="56" y1="256" x2="464" y2="256" stroke="#333c57"/>
+<text x="48" y="260" text-anchor="end">10^-8</text>
+<line x1="56" y1="197" x2="464" y2="197" stroke="#333c57"/>
+<text x="48" y="201" text-anchor="end">10^-6</text>
+<line x1="56" y1="138" x2="464" y2="138" stroke="#333c57"/>
+<text x="48" y="142" text-anchor="end">10^-4</text>
+<line x1="56" y1="79" x2="464" y2="79" stroke="#333c57"/>
+<text x="48" y="83" text-anchor="end">10^-2</text>
+<line x1="56" y1="20" x2="464" y2="20" stroke="#333c57"/>
+<text x="48" y="24" text-anchor="end">10^0</text>
+<line x1="86.70505955772609" y1="51.886982755796" x2="308.6663679814056" y2="121.25208835972333" stroke="#f9a31b" stroke-width="2" stroke-dasharray="6 4"/>
+<rect x="60.67626488943152" y="32.355947034842416" width="6" height="6" fill="#73eff7"/>
+<rect x="91.3813244471576" y="48.49479205843298" width="6" height="6" fill="#73eff7"/>
+<rect x="106.73385422602064" y="58.88907010431629" width="6" height="6" fill="#73eff7"/>
+<rect x="122.08638400488368" y="59.176400464503075" width="6" height="6" fill="#73eff7"/>
+<rect x="137.43891378374673" y="68.5001188628888" width="6" height="6" fill="#73eff7"/>
+<rect x="152.79144356260974" y="68.4148361003825" width="6" height="6" fill="#73eff7"/>
+<rect x="168.14397334147282" y="77.38637930821204" width="6" height="6" fill="#73eff7"/>
+<rect x="183.49650312033586" y="79.44184401386451" width="6" height="6" fill="#73eff7"/>
+<rect x="198.8490328991989" y="85.52467733481708" width="6" height="6" fill="#73eff7"/>
+<rect x="214.20156267806195" y="88.43493521845659" width="6" height="6" fill="#73eff7"/>
+<rect x="229.55409245692496" y="95.08851422593926" width="6" height="6" fill="#73eff7"/>
+<rect x="244.906622235788" y="98.74581025841991" width="6" height="6" fill="#73eff7"/>
+<rect x="260.259152014651" y="104.3911372628418" width="6" height="6" fill="#73eff7"/>
+<rect x="275.6116817935141" y="108.76499462041116" width="6" height="6" fill="#73eff7"/>
+<rect x="290.96421157237717" y="113.35036353583837" width="6" height="6" fill="#73eff7"/>
+<rect x="306.3167413512402" y="118.43938763621406" width="6" height="6" fill="#73eff7"/>
+<rect x="321.6692711301032" y="123.06002935414338" width="6" height="6" fill="#73eff7"/>
+<rect x="337.02180090896627" y="127.92247833222089" width="6" height="6" fill="#73eff7"/>
+<rect x="352.3743306878293" y="133.92291867793915" width="6" height="6" fill="#73eff7"/>
+<rect x="367.72686046669236" y="142.14258849993433" width="6" height="6" fill="#73eff7"/>
+<rect x="383.0793902455554" y="153.23632635202574" width="6" height="6" fill="#73eff7"/>
+<rect x="398.4319200244184" y="163.61961564990128" width="6" height="6" fill="#73eff7"/>
+<rect x="413.78444980328146" y="179.2923707412314" width="6" height="6" fill="#73eff7"/>
+<rect x="429.1369795821445" y="203.16679784269337" width="6" height="6" fill="#73eff7"/>
+<rect x="444.48950936100755" y="227.64415568987482" width="6" height="6" fill="#73eff7"/>
+<text x="464" y="34" text-anchor="end" fill="#f9a31b">slope ≈ -1.08</text>
+<text x="268" y="292" text-anchor="middle">avalanche size s (topplings)</text>
+<text x="14" y="150" text-anchor="middle" transform="rotate(-90 14 150)">P(s)</text>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320" shape-rendering="crispEdges" font-family="monospace" font-size="12" fill="#c9d6e3">
+<rect width="480" height="320" fill="#10142c"/>
+<line x1="46" y1="274" x2="434" y2="46" stroke="#f4f4f4" stroke-dasharray="5 5"/>
+<rect x="47" y="241.63603275705185" width="17.4" height="32.36396724294815" fill="#d7263d"/>
+<rect x="85.80000000000001" y="206.26086956521738" width="17.4" height="67.73913043478262" fill="#d7263d"/>
+<rect x="124.60000000000001" y="194.13903743315507" width="17.4" height="79.86096256684493" fill="#d7263d"/>
+<rect x="163.39999999999998" y="177.9673913043478" width="17.4" height="96.03260869565219" fill="#d7263d"/>
+<rect x="202.20000000000002" y="161.46529562982005" width="17.4" height="112.53470437017995" fill="#d7263d"/>
+<rect x="241" y="155.55073720728535" width="17.4" height="118.44926279271465" fill="#d7263d"/>
+<rect x="279.79999999999995" y="147.6109589041096" width="17.4" height="126.3890410958904" fill="#d7263d"/>
+<rect x="318.59999999999997" y="129.90917691579943" width="17.4" height="144.09082308420057" fill="#d7263d"/>
+<rect x="357.40000000000003" y="113.13333333333333" width="17.4" height="160.86666666666667" fill="#d7263d"/>
+<rect x="396.2" y="78.11381824648765" width="17.4" height="195.88618175351235" fill="#d7263d"/>
+<rect x="65.4" y="260.48481927710844" width="17.4" height="13.515180722891557" fill="#38b764"/>
+<rect x="104.20000000000002" y="242.56329735034348" width="17.4" height="31.436702649656524" fill="#38b764"/>
+<rect x="143" y="218.07110208227527" width="17.4" height="55.928897917724726" fill="#38b764"/>
+<rect x="181.79999999999998" y="196.404296875" width="17.4" height="77.595703125" fill="#38b764"/>
+<rect x="220.60000000000002" y="174.39874739039666" width="17.4" height="99.60125260960334" fill="#38b764"/>
+<rect x="259.4" y="150.79014778325123" width="17.4" height="123.20985221674877" fill="#38b764"/>
+<rect x="298.19999999999993" y="130.68243583291394" width="17.4" height="143.31756416708606" fill="#38b764"/>
+<rect x="336.99999999999994" y="99.90963855421688" width="17.4" height="174.09036144578312" fill="#38b764"/>
+<rect x="375.8" y="76.11764705882354" width="17.4" height="197.88235294117646" fill="#38b764"/>
+<rect x="414.59999999999997" y="56.45142002989536" width="17.4" height="217.54857997010464" fill="#38b764"/>
+<line x1="46" y1="274" x2="434" y2="274" stroke="#94b0c2"/>
+<line x1="46" y1="274" x2="46" y2="46" stroke="#94b0c2"/>
+<text x="240" y="310" text-anchor="middle">predicted probability of a good summit day</text>
+<text x="14" y="160" text-anchor="middle" transform="rotate(-90 14 160)">observed frequency</text>
+<rect x="56" y="22" width="10" height="10" fill="#d7263d"/><text x="72" y="31">over-confident</text>
+<rect x="196" y="22" width="10" height="10" fill="#38b764"/><text x="212" y="31">calibrated</text>
+</svg>
