@@ -1,49 +1,45 @@
 # Hut to Hut — Peter Bodnar
 
-A personal site told as a little 16‑bit journey. Scroll (or swipe) to travel: windsurfing off a Sardinian beach
-(come back to the sea and he takes turns: snorkelling, then windsurfing again), cycling inland past olive groves
-and flamingos, hiking up through an Alpine village and forest to a mountain hut, over the rocks (or round the
-lake), through a golden larch valley and up its rock band — a scramble on hands and feet, following red-white-red
-trail paint — then up a glacier (seracs, crevasses, the bergschrund, a cornice on the summit ridge) to a summit at
-4,061 m, and home to a turreted Victorian terrace in London. Summer by the sea, autumn in the mountains,
-winter up high.
+A personal site told as a first-person walk through real places. You stand in 360° photographs and walk from one
+to the next: from a Mediterranean beach, inland through an orchard and an Alpine valley, up through a forest and
+along a mossy stream to a wooden hut, over the rocks (or round a frozen lake) to a summit, down to a quiet spot
+for the night under the Milky Way, and home to a Victorian street in London. Look around, follow the arrows on the
+ground, and open the notes I left along the way.
 
-- **About me** — a short bio, the work I care about in plain words, hobbies, a pixel map of the places that
-  shaped me and a summit log.
-- **Blog** — Markdown posts with images, video, YouTube/Vimeo, code, maths and related posts. It lives in the hut
-  (step inside), and its index is a teletext page.
-- **Contact** — the summit book: a form backed by a small TypeScript API, with a dial-up modem flourish.
+- **About me** — notes pinned in the photos: hello, places that shaped me (with a map), what I do, what's in my
+  rucksack, ideas I keep coming back to, the summit log, and a few things I do for fun.
+- **Blog** — Markdown posts with pictures, **sound**, video, YouTube/Vimeo, code, maths and related posts. Every
+  post is pinned along the trail as a red-and-white waymark, and they all live in the hut's logbook.
+- **Contact** — the summit book: a form backed by a small TypeScript API.
 
-It's written for anyone, not just techies: a welcome card and a **Help** window explain how it works, the top bar
-says where you are, a trail map under it jumps to any stop, and **Simple view** turns it into a plain, quiet page
-(over a still picture of the mountain hut in today's season, by day or by starlight; the Menu can pick another).
-The journey itself always runs through the seasons as you climb.
-Everything game-like is optional and never blocks the content:
+v1 (Next.js) and v2 (a pixel-art side-scroller) stay on their branches. v3 is a new engine, written from scratch:
 
-- **Choices** — step inside the hut (or keep walking); at the fork, take the rocks or the lake. The rocks take
-  their time (a climb and an abseil to help with); the lake path flows straight on.
-- **Challenges** — tap the glowing holds to help with a rock climb, bounce down an abseil, and jump a crevasse
-  with a timing meter (or just walk the ladder). Each earns a badge. Heading back, it's always a climb up a cliff
-  and an abseil down one.
-- **Wildlife** — 20 species react to the pointer (or your finger) and can be photographed for your album;
-  land animals keep to dry land, cross the stream on the bridge and stay below ~3,600 m (higher up, only birds;
-  mountain hares never come below 1,200–1,600 m). Flamingos wade in the lagoon, and now and then one takes off.
-  Once in a while two deer, chamois, ibex or foxes meet nose to nose (hearts float up) and wander off together — at
-  least once on every journey, if you pause to look; come too close and they're gone.
-- **Buried finds** — a different handful each visit, in the ground's cross-section: an amphora on the sea bed,
-  pirate treasure in the sand, a Nuragic bronze, fossils and crystals in the rock, an old ice axe in the glacier.
-- **Look up** — now and then: a contrail, a flock of birds, a paraglider, a hot-air balloon, a cable car on a far
-  ridge, a lighthouse and a ferry out at sea, a shooting star at night. Nothing pops in or out: they ease in and out
-  as they come and go, as night falls and as you walk on; the cable cars slide by with their mountains, and the ferry
-  slips behind the coast. Birds in the foreground fly in from the side (or flutter up, fading in) and fly or fade
-  away: gulls glide across, an eagle glides over to circle, a flock of choughs swoops in to land by the path.
-- **Day / night** — the moon button (or a click on the sun or the moon in the sky) switches between day and night;
-  the sun and the moon ride the same arc across the sky.
-  At night the trail keeps its own clock: a sunset over the sea, the beach and the bike ride; darkness falling
-  gradually once you get off the bike and walk on through the village; late evening at the hut, an alpine start over
-  the rocks and the glacier, and first light from the upper glacier to sunrise on the summit. The head torch comes on
-  when it's dark enough to need it, and follows the pointer.
-- **Phones** — the scene, cards and menus are laid out for small touch screens.
+- **The view** — a WebGL 2 renderer (`src/engine`) that draws an equirectangular photo per pixel, mipmapped and
+  anisotropically filtered, with no seam where the photo's edges meet. A small preview appears at once and the
+  full photo fades in when it has loaded; the next places are fetched before you get there.
+- **Walking** — each photo is treated as painted on the ground and on a sphere around where it was taken, so
+  stepping from one to the next has real parallax (the ground flows under you) as one photo dissolves into the
+  next, with footsteps and a slight sway. Doors are a short step; long journeys fade.
+- **A camera, not a picture** — exposure adapts to what you look at (darker into the sky, brighter in the
+  shade), the sun glares and throws lens ghosts, water ripples and glints, and there's a touch of grain and
+  vignette. Dust drifts in forest light, seeds and pollen float over meadows, midges swarm by the stream, ice
+  crystals glitter by the frozen lake, it drizzles in London, flocks of birds cross the sky now and then, and
+  there are shooting stars at night.
+- **Real time of day** — at the bivouac, *Stay the night* crossfades through real photographs taken from the same
+  spot at sunset, dusk, night (with the Milky Way overhead) and sunrise.
+- **Sound** — every place has its own soundscape, synthesised live with Web Audio (no recordings): wind in
+  gusts, waves, a brook, gulls, finches, blackbirds, a cuckoo, skylarks, choughs, an owl, a woodpecker, cicadas
+  and crickets, distant cowbells, marmots, a crackling fire, rain and traffic. Sounds sit where they are in the
+  photo and turn as you look around (HRTF panning); each place has its own echo, and walking crossfades one place
+  into the next. Sound is off until you turn it on.
+- **Things to find** — a field guide of 30 real things to spot in the photos (zoom in and look at them for a
+  moment): a stone pine, sea bamboo kelp, a larch, rotten spring ice, the Milky Way… each with a short fact. Plus
+  17 notes, 12 badges, and a camera to take photos of the view (kept in your browser).
+
+It's written for anyone, not just techies: a title screen explains how it works, **Next** at the bottom always
+knows the way on, the trail map (M) jumps to any place, and **Simple view** turns it into a plain, fast page with
+everything on it (also used automatically where WebGL 2 isn't available). Keyboard, mouse, touch and pinch all
+work.
 
 ## Quick start
 
@@ -60,54 +56,65 @@ npm run dev        # Vite on http://localhost:5173 + API on http://localhost:878
 | `npm run build` | Check media for location data, type-check everything and build the frontend into `dist/` |
 | `npm start` | Production server: serves `dist/` (SPA fallback) **and** the API on `PORT` (with `CONTENT_DIR` set, the blog is read live from that folder) |
 | `npm run image:nas` | Build the Docker image for an x86 NAS and save it as `hut2hut.tar`, ready to import (needs Docker Desktop) |
-| `npm test` | Vitest: API routes, storage, blog logic, frontmatter, media embeds, Markdown rendering, wildlife rules (dry land, bridge, lagoon) |
+| `npm test` | Vitest: API routes, storage, blog logic, frontmatter, media embeds and privacy (photos, video, sound), Markdown rendering, camera maths, the trail's paths and photos, post placement, saved progress |
 | `npm run lint` / `npm run typecheck` | oxlint / `tsc -b` |
-| `npm run maps` | Re-rasterise the pixel maps from Natural Earth (output is committed) |
-| `npm run media` | Re-generate the sample post media (needs `ffmpeg`) |
-| `npm run media:check` / `npm run media:clean` | Find / remove GPS location and camera details in `public/` and `src/content/` media (videos need `ffmpeg`) |
+| `npm run panoramas` | Prepare the trail's photos in `src/assets/trail/` from `src/content/trail.ts` (downloads from Poly Haven once; needs ImageMagick 7, `cwebp` and `ffmpeg`; output is committed) |
+| `npm run map` | Re-draw the map of Europe from Natural Earth (output is committed) |
+| `npm run media` | Re-generate the sample post media, including the sandpile sound (needs `ffmpeg`) |
+| `npm run media:check` / `npm run media:clean` | Find / remove GPS location, camera and recorder details in `public/`, `src/content/` and `src/assets/` media (videos and Ogg sound need `ffmpeg`) |
 
-In development, `/lab?f=0.6&theme=night&route=lake&hut=inside` pins the scene anywhere on the trail (handy for
-screenshots), and `window.__world.debugTargets()` lists what's clickable on screen.
+Any place can be opened directly: `/trail/beach`, `/trail/summit`, `/trail/bivouac`… (the address follows you as
+you walk).
 
 ## Editing content
 
 - **About me, places, work, summits, side quests:** `src/content/profile.ts`. All copy is in one place; set
-  `profile.email` to enable a `mailto:` fallback in the contact form and `profile.links` to show links in the footer.
-- **Photo album species:** `src/content/species.ts` (names, facts, hints). **Badges:** `src/content/badges.ts`.
-  **How-it-works guide:** `src/content/howto.ts`.
+  `profile.email` to enable a `mailto:` fallback in the contact form and `profile.links` to show links. The notes
+  that show it along the trail are in `src/ui/panels/notes.tsx`; **badges** are in `src/content/badges.ts`.
+- **The trail:** `src/content/trail.ts` — every place, its photo (and who took it, where), which way the paths go,
+  where the notes, waymarks and field-guide spots are in the photo, the sun, water, weather and sounds. Directions
+  are `yaw` (degrees from the middle of the photo, positive to the right) and `pitch` (degrees above the horizon).
+- **Your own 360° photos:** any equirectangular JPEG (2:1, from a 360 camera or a phone's panorama mode) works.
+  Point a scene at it with `photo: { file: 'photos/ridge.jpg', title: 'The ridge', authors: ['Me'] }`, run
+  `npm run panoramas ridge` and adjust the scene's directions. Strip its location first (`npm run media:clean`
+  does JPEGs).
 - **Blog posts:** add a Markdown file to `src/content/logbook/`, e.g. `2026-12-01-my-entry.md`:
 
   ```markdown
   ---
   title: My entry
   date: 2026-12-01
-  summary: One sentence for the index and the trail signs.
+  summary: One sentence for the index and the waymark.
   tags: [ml, mountains]
-  season: winter        # spring | summer | autumn | winter — sets the scenery while reading
+  season: winter        # spring | summer | autumn | winter — picks a place on the trail with that season
+  scene: summit         # optional: pin it at a particular place instead (any id from src/content/trail.ts)
   draft: false          # drafts show only in `npm run dev`, and are left out of the build entirely
   ---
 
   Text with **Markdown**, footnotes[^1], tables, `code` and maths like $e^{i\pi}+1=0$.
 
   ![A photo](/media/photo.jpg "Optional caption")
-  ![A local video](/media/clip.mp4 "Shown in a camcorder frame")
+  ![Birdsong at the hut](/media/dawn.mp3 "A sound: shown as a player")
+  ![A local video](/media/clip.mp4 "Optional caption")
   ![A talk](https://www.youtube.com/watch?v=VIDEO_ID)
 
   [^1]: Footnote text.
   ```
 
-  Put media files in `public/media/`. Images, `.mp4/.webm` videos and YouTube/Vimeo links all use the image
-  syntax. Raw HTML is never rendered. Reading time, alpine grade (F → ED), "ascent" (one word, one metre),
-  teletext page numbers (P201…) and related posts ("nearby routes", by shared tags) are computed automatically.
-  On a post, hovering over (or tapping) the time, grade or ascent explains it; the blog index has a one-line key.
+  Put media files in `public/media/`. Pictures, sound (`.mp3`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wav`, `.flac`),
+  video (`.mp4`, `.webm`, `.mov`) and YouTube/Vimeo links all use the image syntax. While a post's sound or video
+  plays, the trail's own sounds step back. Raw HTML is never rendered. Reading time, alpine grade (F → ED),
+  "ascent" (one word, one metre), post numbers (No. 201…) and related posts (by shared tags) are computed
+  automatically. Each post is pinned along the trail: at its `scene`, or at a place with its `season` (posts are
+  spread evenly, oldest first, so a new post never moves an older one); when a place has more posts than
+  waymarks, the rest share a trail register.
 
   On the NAS (see [Running it on a NAS](#running-it-on-a-nas-and-posting-without-redeploying)), posts go in its
   `content/blog` folder instead, and appear without rebuilding anything.
 
   **Hundreds of posts are fine.** Each post's details are worked out at build time (`scripts/vite-plugin-blog.ts`),
   so visitors download a small index of all posts (about 0.6 KB per post, compressed to a third of that) and each
-  post's text only when they open it. The blog lists 20 posts per page, with search and topic filters. Teletext
-  numbers run P201–P999, so after 799 posts the newest can't be reached by typing a number (links still work).
+  post's text only when they open it. The blog lists 20 posts per page, with search and topic filters.
 
   **Plain versions, for AI tools and for people.** Every post is also published without the site's decoration,
   showing only its title and text (no date, tags, reading time, grade or ascent):
@@ -132,14 +139,18 @@ a time trap and per-IP rate limiting, then:
 - always appends the message to `data/messages.jsonl` (file mode `0600`), and
 - emails it via SMTP if `SMTP_HOST` and `CONTACT_TO` are set (see `.env.example`).
 
-There is also an anonymous visitor counter and collective "sightings" counter (`/api/stats*`), stored in
-`data/stats.json`. No cookies, no analytics.
+There is also an anonymous visitor counter and a collective count of what's been spotted in the field guide
+(`/api/stats*`), stored in `data/stats.json`. No cookies, no analytics.
 
 ## Privacy
 
 The site says where you live only as "London". Phones store GPS coordinates (and the time and camera) in every
-photo and video, so `npm run build` refuses to publish media that still carries them: run `npm run media:clean`
-to strip it (portrait photos keep their orientation). Drafts are left out of production builds.
+photo and video, and recorders in sound files, so `npm run build` refuses to publish media that still carries
+them: run `npm run media:clean` to strip it (portrait photos keep their orientation). Drafts are left out of
+production builds. The trail's photos are of other people's places, credited in the app, and carry no metadata.
+
+Progress (places, notes, finds, badges) and the photos you take on the walk stay in your browser
+(localStorage and IndexedDB). Things spotted in the field guide are counted anonymously, as visits are.
 
 Outside the site: keep the LinkedIn and GitHub location at city level, use GitHub's no-reply commit email, host on a
 cloud service, or at home only behind a tunnel (never by forwarding a port on your router: your home IP address shows
@@ -177,17 +188,19 @@ Plus (UGOS Pro, x86); any Docker host works the same way.
    `docker/hut2hut/content`:
    - a new post is a new file in `blog/`, named and written as in [Editing content](#editing-content)
      (`2026-12-01-gran-paradiso.md`); edit or delete files to change or remove posts;
-   - photos and videos go in `media/`, and posts show them as `/media/<file name>`;
+   - photos, sound files and videos go in `media/`, and posts show them as `/media/<file name>`;
    - drafts (`draft: true`) are never shown on the NAS. Write and preview them on your Mac with `npm run dev`
      (in `src/content/logbook`), then copy the finished file across.
 
    The Markdown and plain versions, `llms.txt`, reading time, grade and related posts all follow automatically.
 
-**Photos stay private.** Before a photo or video is sent to a visitor, the server takes out the location and
-camera details phones write into it. It keeps a cleaned copy in `data/media-cache` and leaves your original as it
-is. Videos are cleaned without re-encoding: the metadata is marked as padding, so nothing else changes. A file it
-can't clean, such as an iPhone HEIC photo, isn't shown at all. Export it as JPEG instead. The project's log (in the
-Docker app) has a `[media]` line for everything it cleans or holds back.
+**Photos and recordings stay private.** Before a photo, video or sound file is sent to a visitor, the server takes
+out the location and camera or recorder details phones write into it (voice memos record where they were made,
+too). It keeps a cleaned copy in `data/media-cache` and leaves your original as it is. Videos, M4A, MP3, WAV and
+FLAC files are cleaned without re-encoding: the metadata becomes padding, so nothing else changes. A file it can't
+clean, such as an iPhone HEIC photo or an Ogg/Opus file with tags, isn't shown at all: export it as JPEG (or MP3
+or M4A), or run it through `npm run media:clean` first. The project's log (in the Docker app) has a `[media]` line
+for everything it cleans or holds back.
 
 **Updating the site's code:** run `npm run image:nas` again, import the new `hut2hut.tar`, and restart the project
 (stop, then start). `content/` and `data/` are kept.
@@ -203,39 +216,41 @@ shows them), or give the folder read and write access in UGOS.
 
 ## Things to find
 
-- 20 species for the photo album (dolphins, flamingos, marmots, ibex… some only at night or in certain seasons),
-  7 hidden edelweiss, and 12 badges.
-- Night mode follows your device's dark mode until you flip it with the moon button; the Menu lets you pick a season.
-- On the blog page, type a three-digit page number like an old teletext remote.
-- ↑ ↑ ↓ ↓ ← → ← → B A.
+- 30 things to spot in the photos for the field guide (zoom in on them), 17 notes from me, 12 badges, and the
+  Milky Way if you stay the night.
+- Every post read to the end gets a stamp in your logbook.
+- Keys: arrows or WASD to look and walk, + and − to zoom, M map, B blog, G field guide, P photo, H help.
 
 ## Accessibility & comfort
 
-All content is regular, semantic HTML over a decorative canvas (`aria-hidden`). Body text uses Atkinson
-Hyperlegible; pixel fonts are kept for headings. Sound is off by default. `prefers-reduced-motion` is respected
-(no weather, no camera easing, no VHS transitions; the crevasse jump needs no timing). Simple view removes the game
-(only a still, decorative scene remains), and the Menu can switch off animals, the old-TV effect and sound. Dialogs trap focus and close with
-`Esc`. Day and night themes, phone layouts and all dialogs pass an axe-core audit.
+All content is regular, semantic HTML over a decorative canvas (`aria-hidden`); every pin and arrow is a real
+button you can reach with Tab, and screen readers hear where you've arrived and what's there. Body text uses
+Atkinson Hyperlegible; headings use Fraunces. Sound is off by default and never starts on its own.
+`prefers-reduced-motion` is respected (no walking motion, sway, particles or rippling water; places crossfade),
+and the Menu can turn motion down by hand. **Simple view** removes the 3D walk altogether. Dialogs trap focus and
+close with `Esc`. The renderer lowers its resolution on slow devices, frees photos it no longer needs, pauses in
+a hidden tab and recovers from a lost GPU context.
 
 ## Project layout
 
 ```
-server/           Hono API (Node runs the .ts files directly), the live blog and media privacy, + tests
-shared/           Types and zod schema shared by client and server; the plain versions' addresses
-src/game/engine/  Canvas engine: world (trail, routes, ground layers, water, bridge), clock (night along the
-                  trail), seaSport (windsurf or snorkel), backdrop (sky, sun and moon, sea, Alps), distant
-                  (quiet things in the background), finds (treasures and fossils in the ground),
-                  terrain (layered ground: sea, sand, soil, scree, glacier ice, bedrock), waters (lake and
-                  lagoon with reflections), props, actors (climber, bike, windsurf, snorkel, scramble),
-                  animals + rig (procedural legs/wings), night (darkness, head torch), renderer
-src/game/         React bridge, pixel maps, icons, London street scene (Victorian terrace)
-src/components/   HUD, trail map, menu, help, photo album, toasts, Markdown, home sections, challenges
-src/pages/        Home (the journey), Logbook (blog, teletext), Post, NotFound, Lab (dev only)
-src/content/      profile.ts, species.ts, badges.ts, howto.ts, logbook/*.md
-scripts/          Blog build plugin and plain versions, map rasteriser, media generator and privacy check
+server/            Hono API (Node runs the .ts files directly), the live blog and media privacy, + tests
+shared/            Types and zod schema shared by client and server; the plain versions' addresses
+src/engine/        The first-person engine: WebGL 2 renderer and shaders (panorama, parallax walk, exposure,
+                   glare, water, grain), textures (preview → full, memory budget), particles and birds,
+                   camera maths, and audio/ (the soundscape: synthesised voices, HRTF panning, reverb)
+src/ui/            React: the stage and input, hotspots, HUD, panels (notes, map, field guide, photos, menu),
+                   blog (index, post reader, Markdown with sound/video, summit book), simple view
+src/content/       trail.ts (places, photos, paths, notes, spots, sounds), profile.ts, badges.ts,
+                   europeMap.ts (generated), logbook/*.md
+src/lib/           Blog logic, post placement, saved progress, photos (IndexedDB), media embeds, API client
+src/assets/trail/  The trail's photos (generated by `npm run panoramas`; the build fingerprints them); public/media/ the posts' media
+scripts/           Blog build plugin and plain versions, panorama and map builders, media generator and privacy check
 ```
 
 ## Credits
 
-Map data: [Natural Earth](https://www.naturalearthdata.com/) (public domain). Fonts: Press Start 2P, VT323 and
-IBM Plex Mono (SIL Open Font License). Pixel art, sounds and sample media are original and generated in code.
+360° photographs: [Poly Haven](https://polyhaven.com/hdris) (CC0), by Andreas Mischok, Greg Zaal, Rico Cilliers,
+Alexander Scholten, Dimitrios Savva and Jarod Guest; each place in the app says which photo it is and where it was
+taken. Map data: [Natural Earth](https://www.naturalearthdata.com/) (public domain). Fonts: Fraunces, Atkinson
+Hyperlegible and IBM Plex Mono (SIL Open Font License). Sounds and sample media are original and generated in code.

@@ -1,12 +1,16 @@
-/** Recognise video files and YouTube/Vimeo links used with Markdown image syntax. */
+/** Recognise sound and video files and YouTube/Vimeo links used with Markdown image syntax. */
 export type Embed =
   | { kind: 'video'; src: string }
+  | { kind: 'audio'; src: string }
   | { kind: 'iframe'; src: string; provider: 'youtube' | 'vimeo' }
   | { kind: 'image'; src: string }
 
+export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'opus', 'wav', 'flac'] as const
+
 export function classifyMedia(src: string): Embed {
   const clean = src.trim()
-  if (/\.(mp4|webm|ogv|mov)(\?.*)?$/i.test(clean)) return { kind: 'video', src: clean }
+  if (/\.(mp4|webm|ogv|mov|m4v)(\?.*)?$/i.test(clean)) return { kind: 'video', src: clean }
+  if (new RegExp(`\\.(${AUDIO_EXTENSIONS.join('|')})(\\?.*)?$`, 'i').test(clean)) return { kind: 'audio', src: clean }
   let url: URL | null = null
   try {
     url = new URL(clean, 'https://local.invalid')
@@ -35,9 +39,9 @@ function youtube(id: string, url: URL) {
   return `https://www.youtube-nocookie.com/embed/${id}${seconds > 0 ? `?start=${seconds}` : ''}`
 }
 
-/** 90s camcorder date stamp, e.g. "NOV 10 2026". */
-export function camcorderDate(iso: string) {
-  const d = new Date(`${iso}T12:00:00Z`)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' }).replace(',', '').toUpperCase()
+/** "1:05" from seconds. */
+export function clock(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const s = Math.floor(seconds)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }

@@ -59,6 +59,10 @@ $$
 
 On a log-log plot a power law is a straight line — no "typical" avalanche size, just fewer big ones than small ones, all the way up until the edges of the table get in the way. Bak called this *self-organised criticality*.
 
+You can hear it, too. Below, every toppling is a click: most grains make a single tick, some a short burst, and every so often one sets off a crackle that goes on and on. Physicists call this kind of signal *crackling noise*; it turns up in paper being crumpled, magnets being magnetised and earthquakes.
+
+![A sandpile at the critical point, one click per toppling](/media/sandpile-crackle.mp3 "Random grains on a 48×48 table at its critical point. Headphones help.")
+
 ## What it is not
 
 It is tempting to say this explains snow avalanches. It doesn't, and I would not want anyone to make decisions in avalanche terrain based on a toy on a laptop. Real slab avalanches depend on weak layers, temperature, wind loading and slope angle — that is what avalanche bulletins and proper training are for.[^bulletin]

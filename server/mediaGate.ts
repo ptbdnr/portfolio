@@ -2,16 +2,17 @@ import { createHash } from 'node:crypto'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
 import path from 'node:path'
-import { MEDIA, VIDEO, findMetadata, mp4MetadataBoxes, stripMetadata } from '../scripts/media-privacy.ts'
+import { AUDIO, MEDIA, MP4, OGG, findMetadata, mp4MetadataBoxes, stripMetadata } from '../scripts/media-privacy.ts'
 
 type Logger = Pick<Console, 'info' | 'warn' | 'error'>
 
-/** The file to send for a picture or video: the original, or a copy with the personal details taken out. */
+/** The file to send for a picture, video or sound: the original, or a copy with the personal details taken out. */
 export type MediaFile = { file: string; stats: Stats }
 export type MediaVerdict = MediaFile | { blocked: string[] }
 
-/** Pictures bigger than this aren't read to be checked (and so aren't shown). */
+/** Pictures and sound files bigger than this aren't read to be checked (and so aren't shown). */
 const MAX_PICTURE = 64 * 1024 * 1024
+const MAX_SOUND = 160 * 1024 * 1024
 
 /** The file a site address like `2026/ridge.jpg` points to, only if it's inside `dir` and not hidden. */
 export function insideFolder(dir: string, rel: string) {
@@ -62,10 +63,11 @@ async function videoMetadata(file: string, size: number) {
 const findingsIn = (parts: { bytes: Buffer }[], ext: string) => findMetadata(Buffer.concat(parts.map((p) => p.bytes)), ext)
 
 /**
- * Pictures and videos for the site, straight from the content folder, with the location and camera
- * details phones write into them taken out (as `npm run build` makes sure of for the built-in ones):
- * a cleaned copy is kept in `cacheDir`, and the originals are left as they are. A file that can't be
- * cleaned (an iPhone HEIC photo, say) isn't shown at all, and the log says why.
+ * Pictures, videos and sound for the site, straight from the content folder, with the location and
+ * camera details phones write into them taken out (as `npm run build` makes sure of for the built-in
+ * ones): a cleaned copy is kept in `cacheDir`, and the originals are left as they are. A file that
+ * can't be cleaned (an iPhone HEIC photo, say, or an Ogg file with tags) isn't shown at all, and the
+ * log says why.
  */
 export function createMediaGate(dir: string, cacheDir: string, logger: Logger = console) {
   const verdicts = new Map<string, { key: string; verdict: Promise<MediaVerdict> }>()
@@ -81,7 +83,7 @@ export function createMediaGate(dir: string, cacheDir: string, logger: Logger = 
   async function check(file: string, stats: Stats, key: string): Promise<MediaVerdict> {
     const ext = path.extname(file).toLowerCase()
     const name = path.relative(dir, file)
-    if (VIDEO.has(ext)) {
+    if (MP4.has(ext)) {
       const found = findingsIn(await videoMetadata(file, stats.size), ext)
       if (!found.length) return { file, stats }
       const copy = await cleanCopy(file, key, ext, async (to) => {
@@ -89,7 +91,12 @@ export function createMediaGate(dir: string, cacheDir: string, logger: Logger = 
         const handle = await open(to, 'r+')
         try {
           for (const part of await videoMetadata(to, stats.size)) {
-            for (const at of mp4MetadataBoxes(part.bytes)) await handle.write(Buffer.from('free', 'latin1'), 0, 4, part.at + at + 4)
+            for (const box of mp4MetadataBoxes(part.bytes)) {
+              // Padding players skip, with nothing left inside it.
+              const at = part.at + box.at
+              await handle.write(Buffer.from('free', 'latin1'), 0, 4, at + 4)
+              await handle.write(Buffer.alloc(box.size - box.header), 0, box.size - box.header, at + box.header)
+            }
           }
         } finally {
           await handle.close()
@@ -100,10 +107,11 @@ export function createMediaGate(dir: string, cacheDir: string, logger: Logger = 
       logger.info(`[media] ${name}: took out ${found.join(' and ')}`)
       return { file: copy, stats: await stat(copy) }
     }
-    if (stats.size > MAX_PICTURE) return { blocked: ['too big to check'] }
+    if (stats.size > (AUDIO.has(ext) ? MAX_SOUND : MAX_PICTURE)) return { blocked: [AUDIO.has(ext) ? 'too big to check: export it as MP3 or M4A' : 'too big to check'] }
     const bytes = await readFile(file)
     const found = findMetadata(bytes, ext)
     if (!found.length) return { file, stats }
+    if (OGG.has(ext)) return { blocked: [`${found.join(', ')}: run it through \`npm run media:clean\` (or export it as MP3 or M4A)`] }
     const cleaned = stripMetadata(bytes, ext)
     const left = findMetadata(cleaned, ext)
     if (left.length) return { blocked: left }

@@ -1,9 +1,11 @@
 /**
- * Keeps location and camera details out of the photos and videos the site publishes. Phones write
- * GPS coordinates and the time a picture was taken into every file; anyone can read them back.
+ * Keeps location and camera details out of the photos, videos and sound files the site publishes.
+ * Phones write GPS coordinates and the time a picture was taken into every file (voice memos too);
+ * anyone can read them back.
  *
- *   node scripts/media-privacy.ts           check public/ and src/content/: lists files with metadata, exits 1 if any
- *   node scripts/media-privacy.ts --clean   strips it in place (JPEG, PNG, WebP, SVG; MP4/MOV via ffmpeg)
+ *   node scripts/media-privacy.ts           check public/, src/content/ and src/assets/: lists files with metadata, exits 1 if any
+ *   node scripts/media-privacy.ts --clean   strips it in place (JPEG, PNG, WebP, SVG, MP3, WAV, FLAC;
+ *                                           MP4/MOV/M4A and Ogg/Opus via ffmpeg)
  *
  * `npm run build` runs the check first, so nothing with a location in it goes live by accident.
  */
@@ -192,11 +194,11 @@ function videoFindings(b: Uint8Array) {
 }
 
 /**
- * Where a movie's metadata boxes start ('udta' and 'meta', at the top level or in 'moov' and
- * 'trak'): every place the location and camera details can be. Renaming them to 'free' (padding
- * that players skip) removes the details without moving anything else, so the video still plays.
+ * A movie's metadata boxes ('udta' and 'meta', at the top level or in 'moov' and 'trak'): every
+ * place the location and camera details can be. Renaming them to 'free' (padding that players skip)
+ * and blanking what's inside removes the details without moving anything else, so it still plays.
  */
-export function mp4MetadataBoxes(b: Uint8Array, from = 0, to = b.length, found: number[] = []) {
+export function mp4MetadataBoxes(b: Uint8Array, from = 0, to = b.length, found: { at: number; header: number; size: number }[] = []) {
   for (let at = from; at + 8 <= to; ) {
     let size = u32(b, at)
     const type = ascii(b, at + 4, 4)
@@ -206,18 +208,169 @@ export function mp4MetadataBoxes(b: Uint8Array, from = 0, to = b.length, found: 
       header = 16
     } else if (size === 0) size = to - at
     if (size < header || at + size > to) break
-    if (type === 'udta' || type === 'meta') found.push(at)
+    if (type === 'udta' || type === 'meta') found.push({ at, header, size })
     else if (type === 'moov' || type === 'trak') mp4MetadataBoxes(b, at + header, at + size, found)
     at += size
   }
   return found
 }
 
+/* ------------------------------------------------------------ MP3 / AAC */
+
+/** ID3v2 tags at the start of the file (there can be more than one), as [start, end] ranges. */
+function id3v2Tags(b: Uint8Array) {
+  const tags: [number, number][] = []
+  let at = 0
+  while (at + 10 <= b.length && ascii(b, at, 3) === 'ID3') {
+    const size = ((b[at + 6] & 0x7f) << 21) | ((b[at + 7] & 0x7f) << 14) | ((b[at + 8] & 0x7f) << 7) | (b[at + 9] & 0x7f)
+    const footer = b[at + 5] & 0x10 ? 10 : 0
+    const end = Math.min(b.length, at + 10 + size + footer)
+    tags.push([at, end])
+    at = end
+  }
+  return tags
+}
+
+/** An APEv2 tag at the end (before an ID3v1 tag, if there is one), as a [start, end] range. */
+function apeTag(b: Uint8Array): [number, number] | null {
+  for (const end of [b.length, b.length - 128]) {
+    const footer = end - 32
+    if (footer < 0 || ascii(b, footer, 8) !== 'APETAGEX') continue
+    const size = u32(b, footer + 12, true)
+    const hasHeader = (u32(b, footer + 20, true) & 0x80000000) !== 0
+    const start = end - size - (hasHeader ? 32 : 0)
+    if (start >= 0) return [start, end]
+  }
+  return null
+}
+
+const nonZero = (b: Uint8Array, from: number, to: number) => b.subarray(from, to).some((x) => x !== 0)
+
+function id3Findings(b: Uint8Array) {
+  const found = new Set<string>()
+  // A tag that's all padding (as left by stripId3) says nothing.
+  if (id3v2Tags(b).some(([from, to]) => nonZero(b, from + 10, to))) found.add('ID3 tags')
+  if (b.length >= 128 && ascii(b, b.length - 128, 3) === 'TAG' && nonZero(b, b.length - 125, b.length - 1)) found.add('ID3 tags')
+  if (apeTag(b)) found.add('APE tags')
+  return [...found]
+}
+
+/** Empties ID3 and APE tags without moving anything: tags become padding, which players skip. */
+export function stripId3(b: Uint8Array) {
+  const out = b.slice()
+  for (const [from, to] of id3v2Tags(out)) {
+    out[from + 5] &= ~0x50 // no extended header, no footer: just padding inside
+    out.fill(0, from + 10, to)
+  }
+  const ape = apeTag(out)
+  if (ape) out.fill(0, ape[0], ape[1])
+  if (out.length >= 128 && ascii(out, out.length - 128, 3) === 'TAG') {
+    out.fill(0, out.length - 125, out.length)
+    out[out.length - 1] = 255 // genre: none
+  }
+  return out
+}
+
+/* -------------------------------------------------------------------- WAV */
+
+/** The chunks a WAV file needs to play; anything else (LIST/INFO, bext, iXML, XMP, ID3…) is metadata. */
+const WAV_KEEP = new Set(['fmt ', 'data', 'fact', 'cue ', 'smpl', 'JUNK', 'junk', 'PAD ', 'pad '])
+
+function wavChunks(b: Uint8Array) {
+  const chunks: { type: string; start: number; end: number }[] = []
+  if (ascii(b, 0, 4) !== 'RIFF' || ascii(b, 8, 4) !== 'WAVE') return chunks
+  for (let at = 12; at + 8 <= b.length; ) {
+    const size = u32(b, at + 4, true)
+    const end = Math.min(b.length, at + 8 + size + (size & 1))
+    chunks.push({ type: ascii(b, at, 4), start: at, end })
+    at = end
+  }
+  return chunks
+}
+
+/** Turns metadata chunks into empty 'JUNK' chunks (padding players skip), so nothing moves. */
+export function stripWav(b: Uint8Array) {
+  const out = b.slice()
+  for (const c of wavChunks(out)) {
+    if (WAV_KEEP.has(c.type)) continue
+    out.set(Buffer.from('JUNK', 'latin1'), c.start)
+    out.fill(0, c.start + 8, c.end)
+  }
+  return out
+}
+
+/* ------------------------------------------------------------------- FLAC */
+
+const FLAC = { padding: 1, application: 2, comments: 4, picture: 6 }
+
+function flacBlocks(b: Uint8Array) {
+  const blocks: { type: number; start: number; end: number }[] = []
+  if (ascii(b, 0, 4) !== 'fLaC') return blocks
+  for (let at = 4; at + 4 <= b.length; ) {
+    const type = b[at] & 0x7f
+    const end = Math.min(b.length, at + 4 + ((b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]))
+    blocks.push({ type, start: at, end })
+    if (b[at] & 0x80) break
+    at = end
+  }
+  return blocks
+}
+
+function flacFindings(b: Uint8Array) {
+  const found = new Set<string>()
+  for (const block of flacBlocks(b)) {
+    if (block.type === FLAC.picture) found.add('cover picture')
+    else if (block.type === FLAC.application) found.add('application data')
+    else if (block.type === FLAC.comments) {
+      const vendor = u32(b, block.start + 4, true)
+      if (u32(b, block.start + 8 + vendor, true) > 0) found.add('tags')
+    }
+  }
+  return [...found]
+}
+
+/** Turns tags, pictures and application data into padding blocks, so nothing moves. */
+export function stripFlac(b: Uint8Array) {
+  const out = b.slice()
+  for (const block of flacBlocks(out)) {
+    if (block.type !== FLAC.comments && block.type !== FLAC.picture && block.type !== FLAC.application) continue
+    out[block.start] = (out[block.start] & 0x80) | FLAC.padding
+    out.fill(0, block.start + 4, block.end)
+  }
+  return out
+}
+
+/* -------------------------------------------------------------- Ogg / Opus */
+
+/** Whether an Ogg Vorbis or Opus file has comments (tags such as LOCATION=…) in its second page. */
+function oggFindings(b: Uint8Array) {
+  if (ascii(b, 0, 4) !== 'OggS') return []
+  const pageLength = (at: number) => {
+    const segments = b[at + 26]
+    let body = 0
+    for (let i = 0; i < segments; i++) body += b[at + 27 + i]
+    return { header: 27 + segments, total: 27 + segments + body }
+  }
+  const second = pageLength(0).total
+  if (second + 27 > b.length || ascii(b, second, 4) !== 'OggS') return []
+  const at = second + pageLength(second).header
+  const magic = ascii(b, at, 8) === 'OpusTags' ? 8 : ascii(b, at + 1, 6) === 'vorbis' ? 7 : 0
+  if (!magic) return []
+  const vendor = u32(b, at + magic, true)
+  const count = u32(b, at + magic + 4 + vendor, true)
+  return count > 0 ? ['tags'] : []
+}
+
 /* ------------------------------------------------------------- everything */
 
 export const VIDEO = new Set(['.mp4', '.m4v', '.mov'])
+/** MP4 containers: videos, and sound recorded on phones (voice memos and the like). */
+export const MP4 = new Set([...VIDEO, '.m4a'])
+/** Sound that ffmpeg has to clean (comments live inside the Ogg pages). */
+export const OGG = new Set(['.ogg', '.oga', '.opus'])
+export const AUDIO = new Set(['.mp3', '.aac', '.wav', '.flac', ...OGG])
 /** Files that can carry personal metadata (others, like WebM video, are passed as they are). */
-export const MEDIA = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg', '.heic', '.heif', '.tif', '.tiff', ...VIDEO])
+export const MEDIA = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg', '.heic', '.heif', '.tif', '.tiff', ...MP4, ...AUDIO])
 
 /** What personal metadata a file carries (empty when it's clean). */
 export function findMetadata(b: Uint8Array, ext: string): string[] {
@@ -238,8 +391,18 @@ export function findMetadata(b: Uint8Array, ext: string): string[] {
     case '.tif':
     case '.tiff':
       return ['not a web format: convert to JPEG or WebP first']
+    case '.mp3':
+    case '.aac':
+      return id3Findings(b)
+    case '.wav': {
+      const extra = [...new Set(wavChunks(b).filter((c) => !WAV_KEEP.has(c.type)).map((c) => c.type.trim()))]
+      return extra.length ? [`recording details (${extra.join(', ')})`] : []
+    }
+    case '.flac':
+      return flacFindings(b)
     default:
-      return VIDEO.has(ext) ? videoFindings(b) : []
+      if (OGG.has(ext)) return oggFindings(b)
+      return MP4.has(ext) ? videoFindings(b) : []
   }
 }
 
@@ -247,6 +410,9 @@ export function stripMetadata(b: Uint8Array, ext: string): Uint8Array {
   if (ext === '.jpg' || ext === '.jpeg') return stripJpeg(b)
   if (ext === '.png') return stripPng(b)
   if (ext === '.webp') return stripWebp(b)
+  if (ext === '.mp3' || ext === '.aac') return stripId3(b)
+  if (ext === '.wav') return stripWav(b)
+  if (ext === '.flac') return stripFlac(b)
   if (ext === '.svg') {
     const text = Buffer.from(b)
       .toString('utf8')
@@ -268,22 +434,25 @@ async function mediaFiles(dirs: string[]) {
   return files.sort()
 }
 
-async function stripVideo(file: string) {
-  const tmp = `${file}.clean${path.extname(file)}`
-  const run = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', file, '-map', '0', '-map_metadata', '-1', '-map_chapters', '-1', '-c', 'copy', '-movflags', '+faststart', tmp])
-  if (run.error || run.status !== 0) throw new Error(`ffmpeg is needed to clean videos (${file})`)
+/** Rewrites a movie or an Ogg file without its metadata (bit-exact: no "encoder" tag added either). */
+async function stripWithFfmpeg(file: string) {
+  const ext = path.extname(file)
+  const tmp = `${file}.clean${ext}`
+  const container = MP4.has(ext.toLowerCase()) ? ['-movflags', '+faststart'] : []
+  const run = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', file, '-map', '0', '-map_metadata', '-1', '-map_chapters', '-1', '-c', 'copy', '-fflags', '+bitexact', '-flags:v', '+bitexact', '-flags:a', '+bitexact', ...container, tmp])
+  if (run.error || run.status !== 0) throw new Error(`ffmpeg is needed to clean videos and Ogg sound files (${file})`)
   await rename(tmp, file)
 }
 
 async function main() {
   const clean = process.argv.includes('--clean')
-  const files = await mediaFiles(['public', 'src/content'])
+  const files = await mediaFiles(['public', 'src/content', 'src/assets'])
   const dirty: string[] = []
   for (const file of files) {
     const ext = path.extname(file).toLowerCase()
     let found = findMetadata(await readFile(file), ext)
     if (found.length && clean && !ext.startsWith('.he') && !ext.startsWith('.ti')) {
-      if (VIDEO.has(ext)) await stripVideo(file)
+      if (MP4.has(ext) || OGG.has(ext)) await stripWithFfmpeg(file)
       else await writeFile(file, stripMetadata(await readFile(file), ext))
       found = findMetadata(await readFile(file), ext)
       if (!found.length) console.log(`cleaned  ${file}`)

@@ -1,41 +1,54 @@
+/** Badges: small rewards for exploring, all worked out from what you've done. */
+import { SCENES } from './trail.ts'
+
 export type BadgeId =
-  | 'climb'
-  | 'abseil'
-  | 'crevasse'
-  | 'hut'
-  | 'lake'
+  | 'first-steps'
+  | 'beachcomber'
+  | 'hut-guest'
+  | 'both-ways'
   | 'summit'
-  | 'photographer'
-  | 'botanist'
+  | 'night-sky'
+  | 'home'
   | 'reader'
+  | 'naturalist'
+  | 'photographer'
   | 'messenger'
-  | 'nightwalker'
-  | 'yeti'
+  | 'explorer'
 
-export type BadgeInfo = {
-  id: BadgeId
-  title: string
-  /** How it was earned, in plain words. */
-  done: string
-  /** A gentle hint shown before it's earned. */
-  hint: string
-  icon: string
-  secret?: boolean
-}
+export type Badge = { id: BadgeId; title: string; icon: string; done: string; hint: string }
 
-export const BADGES: BadgeInfo[] = [
-  { id: 'climb', title: 'Rock climber', icon: '🧗', done: 'Helped me up the rock wall.', hint: 'Take the rocky path at the fork.' },
-  { id: 'abseil', title: 'Abseiler', icon: '🪢', done: 'Bounced all the way down the cliff.', hint: 'Waits just after the climb.' },
-  { id: 'crevasse', title: 'Crevasse jumper', icon: '🧊', done: 'Leapt over the big crevasse.', hint: 'Up on the glacier. The ladder is fine too.' },
-  { id: 'hut', title: 'Hut guest', icon: '🛖', done: 'Stepped inside the mountain hut.', hint: 'There is soup at the hut.' },
-  { id: 'lake', title: 'Lake wanderer', icon: '🏞️', done: 'Took the gentle path round the lake.', hint: 'One of the two paths at the fork.' },
-  { id: 'summit', title: 'Summit!', icon: '⛰️', done: 'Made it all the way to the top.', hint: 'Keep going — it is worth the view.' },
-  { id: 'photographer', title: 'Wildlife photographer', icon: '📷', done: 'Photographed five different animals.', hint: 'Tap animals to take their picture.' },
-  { id: 'botanist', title: 'Edelweiss finder', icon: '🌼', done: 'Found all seven edelweiss.', hint: 'Small white flowers hide along the trail.' },
-  { id: 'reader', title: 'Bookworm', icon: '📖', done: 'Read one of my blog posts.', hint: 'Open a post from the blog.' },
-  { id: 'messenger', title: 'Pen pal', icon: '✉️', done: 'Sent me a message. Thank you!', hint: 'Say hello at the end of the trail.' },
-  { id: 'nightwalker', title: 'Night owl', icon: '🔦', done: 'Walked the trail by torchlight.', hint: 'Try the moon button at the top.' },
-  { id: 'yeti', title: 'Yeti spotter', icon: '👣', done: 'Typed the secret code. The yeti says hi.', hint: 'An old video-game cheat code…', secret: true },
+export const BADGES: Badge[] = [
+  { id: 'first-steps', title: 'First steps', icon: '🥾', done: 'You walked to a new place.', hint: 'Click an arrow on the ground.' },
+  { id: 'beachcomber', title: 'Beachcomber', icon: '🐚', done: 'You found the cove.', hint: 'There’s a cove along the shore.' },
+  { id: 'hut-guest', title: 'Hut guest', icon: '🛖', done: 'You stepped inside the hut.', hint: 'The hut’s door is open.' },
+  { id: 'both-ways', title: 'Both ways', icon: '🔀', done: 'You took the rocks and the lake.', hint: 'At the fork, try both paths.' },
+  { id: 'summit', title: 'Summit', icon: '⛰️', done: 'You reached the top.', hint: 'Keep going up.' },
+  { id: 'night-sky', title: 'Night sky', icon: '🌌', done: 'You stayed up for the stars.', hint: 'Spend a night at the bivouac.' },
+  { id: 'home', title: 'Home', icon: '🏠', done: 'You came home to London.', hint: 'The walk ends where I live.' },
+  { id: 'reader', title: 'Reader', icon: '📖', done: 'You read a blog post to the end.', hint: 'Read a post all the way down.' },
+  { id: 'naturalist', title: 'Naturalist', icon: '🔭', done: 'You spotted ten things in the field guide.', hint: 'Zoom in on things that catch your eye.' },
+  { id: 'photographer', title: 'Photographer', icon: '📷', done: 'You took a photo.', hint: 'There’s a camera in the top bar.' },
+  { id: 'messenger', title: 'Messenger', icon: '✉️', done: 'You signed the summit book.', hint: 'Leave me a message at the summit.' },
+  { id: 'explorer', title: 'Explorer', icon: '🧭', done: 'You’ve been everywhere on the trail.', hint: 'Visit every place.' },
 ]
 
-export const BADGE_BY_ID = Object.fromEntries(BADGES.map((b) => [b.id, b])) as Record<BadgeId, BadgeInfo>
+type Done = { visited: string[]; seen: string[]; stamps: Record<string, number>; spots: string[]; photos: number; signed: boolean }
+
+export function earnedBadges(p: Done): BadgeId[] {
+  const been = (id: string) => p.visited.includes(id)
+  const rules: Record<BadgeId, boolean> = {
+    'first-steps': p.visited.length >= 2,
+    beachcomber: been('cove'),
+    'hut-guest': been('inside'),
+    'both-ways': been('rocks') && been('lake'),
+    summit: been('summit'),
+    'night-sky': p.seen.includes('bivouac-night'),
+    home: been('home'),
+    reader: Object.keys(p.stamps).length > 0,
+    naturalist: p.spots.length >= 10,
+    photographer: p.photos > 0,
+    messenger: p.signed,
+    explorer: SCENES.every((s) => been(s.id)),
+  }
+  return BADGES.filter((b) => rules[b.id]).map((b) => b.id)
+}

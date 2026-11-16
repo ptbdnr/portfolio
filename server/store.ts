@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { ContactMessage } from '../shared/contact.ts'
-import { SPECIES_IDS, type SpeciesId, type StatsSnapshot } from '../shared/species.ts'
+import { SIGHTING_IDS, type StatsSnapshot } from '../shared/sightings.ts'
 
 export type StoredMessage = ContactMessage & {
   id: string
@@ -13,7 +13,7 @@ export type StoredMessage = ContactMessage & {
 export interface Store {
   saveMessage(message: StoredMessage): Promise<void>
   recordVisit(): Promise<number>
-  recordSighting(species: SpeciesId): Promise<number>
+  recordSighting(spot: string): Promise<number>
   getStats(): Promise<StatsSnapshot>
   flush(): Promise<void>
 }
@@ -27,7 +27,7 @@ function sanitizeStats(raw: unknown): StatsSnapshot {
   if (!raw || typeof raw !== 'object') return stats
   const value = raw as Partial<StatsSnapshot>
   if (typeof value.visitors === 'number' && value.visitors >= 0) stats.visitors = Math.floor(value.visitors)
-  for (const id of SPECIES_IDS) {
+  for (const id of SIGHTING_IDS) {
     const count = value.sightings?.[id]
     if (typeof count === 'number' && count > 0) stats.sightings[id] = Math.floor(count)
   }
@@ -45,9 +45,9 @@ export function createMemoryStore(): Store & { messages: StoredMessage[] } {
     async recordVisit() {
       return ++stats.visitors
     },
-    async recordSighting(species) {
-      stats.sightings[species] = (stats.sightings[species] ?? 0) + 1
-      return stats.sightings[species]
+    async recordSighting(spot) {
+      stats.sightings[spot] = (stats.sightings[spot] ?? 0) + 1
+      return stats.sightings[spot]
     },
     async getStats() {
       return structuredClone(stats)
@@ -112,11 +112,11 @@ export function createFileStore(dataDir: string, flushDelayMs = 400): Store {
       scheduleWrite()
       return current.visitors
     },
-    async recordSighting(species) {
+    async recordSighting(spot) {
       const current = await ready()
-      current.sightings[species] = (current.sightings[species] ?? 0) + 1
+      current.sightings[spot] = (current.sightings[spot] ?? 0) + 1
       scheduleWrite()
-      return current.sightings[species]
+      return current.sightings[spot]
     },
     async getStats() {
       return structuredClone(await ready())

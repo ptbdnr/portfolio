@@ -1,5 +1,5 @@
 import type { ContactInput, ContactResponse } from '../../shared/contact.ts'
-import type { SpeciesId, StatsSnapshot } from '../../shared/species.ts'
+import type { StatsSnapshot } from '../../shared/sightings.ts'
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') ?? ''
 
@@ -42,9 +42,10 @@ export const api = {
     }
   },
 
-  async sighting(species: SpeciesId): Promise<void> {
+  /** Something spotted in the field guide, counted anonymously. */
+  async sighting(spot: string): Promise<void> {
     try {
-      await request('/api/stats/sighting', { method: 'POST', body: JSON.stringify({ species }) })
+      await request('/api/stats/sighting', { method: 'POST', body: JSON.stringify({ spot }) })
     } catch {
       // Stats are a nicety.
     }

@@ -4,7 +4,9 @@
  *  - public/media/avalanche-sizes.svg — log-log histogram of avalanche sizes (the power law)
  *  - public/media/hut-graph.svg — a toy hut-to-hut network for the route-planning post
  *  - public/media/reliability.svg — reliability diagram for the calibration post
- * Requires ffmpeg on PATH for the video/PNG.
+ *  - public/media/sandpile-crackle.mp3 — what a sandpile at the critical point sounds like: one
+ *    click per toppling, so each avalanche is heard as a crackle as long as it is big
+ * Requires ffmpeg on PATH for the video, the PNG and the sound.
  */
 import { spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -271,7 +273,93 @@ ${bars(cal, '#38b764', (W - pad * 2) / bins / 2)}
 </svg>`
 }
 
+/**
+ * The sandpile, listened to. Grains drop at random on a 48×48 table already at its critical point;
+ * every toppling is a short click, in the order the avalanche spreads, so a small avalanche is a
+ * single tick and a big one a long crackle. Louder towards the middle of the table, and panned by
+ * where on it the toppling happens.
+ */
+async function sandpileSound() {
+  const n = 48
+  const rate = 44100
+  const seconds = 24
+  const grid = new Uint8Array(n * n)
+  const rand = mulberry32(2026)
+  const stack: number[] = []
+  for (let i = 0; i < 40000; i++) addGrain(grid, n, (rand() * n) | 0, (rand() * n) | 0, stack)
+
+  const left = new Float32Array(rate * seconds)
+  const right = new Float32Array(rate * seconds)
+  // One click: a few milliseconds of a resonant knock, its pitch a little random.
+  const click = (at: number, gain: number, pan: number) => {
+    const f = 1800 + rand() * 2600
+    const length = Math.floor(rate * 0.006)
+    for (let i = 0; i < length && at + i < left.length; i++) {
+      const env = Math.exp(-i / (rate * 0.0012))
+      const v = Math.sin((2 * Math.PI * f * i) / rate) * env * gain
+      left[at + i] += v * Math.cos(((pan + 1) * Math.PI) / 4)
+      right[at + i] += v * Math.sin(((pan + 1) * Math.PI) / 4)
+    }
+  }
+
+  let t = rate * 0.5
+  const end = left.length - rate
+  while (t < end) {
+    const x = (rand() * n) | 0
+    const y = (rand() * n) | 0
+    // Relax by hand, noting where each toppling happens.
+    grid[y * n + x]++
+    const topples: number[] = []
+    stack.length = 0
+    if (grid[y * n + x] >= 4) stack.push(y * n + x)
+    while (stack.length) {
+      const i = stack.shift()!
+      if (grid[i] < 4) continue
+      grid[i] -= 4
+      topples.push(i)
+      const cx = i % n
+      const cy = (i / n) | 0
+      if (grid[i] >= 4) stack.push(i)
+      for (const [nx, ny] of [
+        [cx - 1, cy],
+        [cx + 1, cy],
+        [cx, cy - 1],
+        [cx, cy + 1],
+      ]) {
+        if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue
+        const j = ny * n + nx
+        if (++grid[j] === 4) stack.push(j)
+      }
+    }
+    // The grain landing: a soft tick. Then the avalanche, at about 2,500 topplings a second.
+    click(Math.floor(t), 0.05, (x / n) * 2 - 1)
+    topples.forEach((i, k) => {
+      const cx = i % n
+      const cy = (i / n) | 0
+      const centre = 1 - Math.hypot(cx - n / 2, cy - n / 2) / (n * 0.75)
+      click(Math.floor(t + rate * 0.012 + k * rate * 0.0004 * (0.7 + rand() * 0.6)), 0.18 + 0.12 * centre, (cx / n) * 2 - 1)
+    })
+    t += rate * (0.035 + rand() * 0.05) + topples.length * rate * 0.0004
+  }
+  // Fade in and out, then write 16-bit stereo for ffmpeg.
+  const pcm = Buffer.alloc(left.length * 4)
+  for (let i = 0; i < left.length; i++) {
+    const fade = Math.min(1, i / (rate * 0.3), (left.length - i) / (rate * 0.8))
+    pcm.writeInt16LE(Math.round(Math.max(-1, Math.min(1, left[i] * fade)) * 26000), i * 4)
+    pcm.writeInt16LE(Math.round(Math.max(-1, Math.min(1, right[i] * fade)) * 26000), i * 4 + 2)
+  }
+  await ffmpeg(
+    ['-y', '-f', 's16le', '-ar', String(rate), '-ac', '2', '-i', '-', '-c:a', 'libmp3lame', '-b:a', '128k', '-id3v2_version', '0', '-write_xing', '1', '-fflags', '+bitexact', path.join(OUT, 'sandpile-crackle.mp3')],
+    [pcm],
+  )
+}
+
 await mkdir(OUT, { recursive: true })
+if (process.argv.includes('--sound')) {
+  await sandpileSound()
+  console.log('sandpile-crackle.mp3')
+  process.exit(0)
+}
 const hist = avalancheHistogram()
 await writeFile(path.join(OUT, 'avalanche-sizes.svg'), hist.svg)
 console.log(`avalanche-sizes.svg (fitted slope ${hist.slope.toFixed(2)})`)
@@ -280,3 +368,5 @@ await writeFile(path.join(OUT, 'reliability.svg'), reliability())
 console.log('hut-graph.svg, reliability.svg')
 await sandpileVideo()
 console.log('sandpile.mp4, sandpile.png')
+await sandpileSound()
+console.log('sandpile-crackle.mp3')

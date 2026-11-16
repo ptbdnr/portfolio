@@ -59,8 +59,11 @@ describe('pictures and videos from the content folder', () => {
     const copy = readFileSync(sent.file)
     expect(findMetadata(copy, '.mov')).toEqual([])
     expect(copy.length).toBe(original.length)
-    // Only the two boxes' names changed (to 'free', which players skip): 8 bytes in all.
-    expect([...copy].filter((b, i) => b !== original[i])).toHaveLength(8)
+    // The two boxes are now padding ('free', which players skip), with nothing left inside them.
+    expect(copy.includes('+51.5072')).toBe(false)
+    expect(copy.includes('com.apple.quicktime.location')).toBe(false)
+    const media = (b: Uint8Array) => Buffer.from(b).subarray(Buffer.from(b).indexOf('mdat'))
+    expect(media(copy).equals(media(original))).toBe(true)
   })
 
   it("doesn't send what it can't clean, like an iPhone HEIC photo, and says why once", async () => {
@@ -90,5 +93,41 @@ describe('pictures and videos from the content folder', () => {
       expect(await gate.resolve(rel)).toBeNull()
     }
     expect(insideFolder('/content/media', 'sub/ok.jpg')).toBe('/content/media/sub/ok.jpg')
+  })
+})
+
+describe('sound from the content folder', () => {
+  it('sends a copy of a voice memo with its location blanked, not just renamed', async () => {
+    const { gate, put } = setup()
+    const original = movie(box('udta', box('\u00a9xyz', '+51.5072-000.1276/')))
+    put('memo.m4a', original)
+    const sent = await gate.resolve('memo.m4a')
+    if (!sent || !('file' in sent)) throw new Error('not sent')
+    const copy = readFileSync(sent.file)
+    expect(copy.length).toBe(original.length)
+    expect(copy.includes('+51.5072')).toBe(false)
+    expect(findMetadata(copy, '.m4a')).toEqual([])
+  })
+
+  it('cleans MP3, WAV and FLAC files, and holds back an Ogg file with tags', async () => {
+    const { mp3, wav, flac, opus } = await import('../scripts/media-fixtures.ts')
+    const { gate, put, logger } = setup()
+    put('ridge.mp3', mp3())
+    put('stream.wav', wav())
+    put('stream.flac', flac())
+    put('night.opus', opus())
+    put('quiet.opus', opus([]))
+    for (const [name, ext] of [
+      ['ridge.mp3', '.mp3'],
+      ['stream.wav', '.wav'],
+      ['stream.flac', '.flac'],
+    ]) {
+      const sent = await gate.resolve(name)
+      if (!sent || !('file' in sent)) throw new Error(`${name} not sent`)
+      expect(findMetadata(readFileSync(sent.file), ext)).toEqual([])
+    }
+    expect(await gate.resolve('night.opus')).toMatchObject({ blocked: [expect.stringContaining('media:clean')] })
+    expect(await gate.resolve('quiet.opus')).toMatchObject({ file: expect.stringContaining('quiet.opus') })
+    expect(logger.warn).toHaveBeenCalledTimes(1)
   })
 })

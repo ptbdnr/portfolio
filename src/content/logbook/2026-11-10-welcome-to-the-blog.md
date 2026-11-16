@@ -1,20 +1,23 @@
 ---
 title: Welcome to the blog
 date: 2026-11-10
-summary: What this site is, why it looks like 1989, and how the blog works — with every kind of embed in one place.
+summary: What this site is, why it's a walk through photographs, and how the blog works — with every kind of embed in one place.
 tags: [meta, site]
 season: spring
+scene: valley
 ---
 
 Every mountain hut has a logbook by the door. People write the date, where they came from, where they are heading — and, if the soup was good, a line about the soup. This blog is mine.
 
 It is where I write about the things I keep coming back to: applied AI, optimisation, uncertainty, and the occasional day in the mountains. Expect half-finished thoughts more than finished answers.
 
-## Why does it look like this?
+## Why is it a walk?
 
-The screens I grew up with had **chunky pixels**, and the most advanced information service in the house was teletext. So the site is a little journey drawn in pixels — from a Sardinian beach to an Alpine summit — with a few nods to that era. The blog's index is a teletext page, for example: try typing a page number on it.
+Because that's how I'd rather meet people: outside, walking somewhere. The site is a walk from a Mediterranean beach to an Alpine summit and home to London, in 360° photographs you can look around in. I left notes along the way about who I am and what I do, and every post here is pinned somewhere on the trail like a waymark: red and white, like the paint on Alpine rocks.
 
-> If any of it gets in your way, open the **Menu** (top right) and switch on **Simple view** — or just switch off the animals, the old-TV effect or the sound. The words are what matter.
+The photographs are real places, free for anyone to use, from [Poly Haven](https://polyhaven.com). The sounds — wind, water, birds, cowbells — are made up live in your browser, so they never repeat quite the same way.
+
+> If any of it gets in your way, open the **Menu** and switch on **Simple view**, or turn the sound and the motion down. The words are what matter.
 
 ## What an entry can hold
 
@@ -24,15 +27,23 @@ Entries are plain Markdown files. Here is a quick tour, mostly as a note to futu
 
 ![A sandpile grown one grain at a time](/media/sandpile.png "A sandpile after 16,000 grains — more on that in another entry")
 
+### Sound
+
+Sound files (`.mp3`, `.m4a`, `.ogg`, `.opus`, `.wav`, `.flac`) use the image syntax too. This is a sandpile at its critical point, listened to: every click is one toppling, so a small avalanche is a tick and a big one a long crackle.
+
+![A sandpile at the critical point, one click per toppling](/media/sandpile-crackle.mp3 "Twenty-four seconds of avalanches on a 48×48 table. Headphones help.")
+
 ### Video
 
-Local video files (`.mp4`, `.webm`) use the normal image syntax:
+Local video files (`.mp4`, `.webm`) use the same syntax:
 
 ![A sandpile growing, grain by grain](/media/sandpile.mp4 "Sixteen thousand grains, dropped one at a time")
 
 …and so do YouTube or Vimeo links. Here is a lovely visual introduction to neural networks:
 
 ![But what is a neural network? — 3Blue1Brown](https://www.youtube.com/watch?v=aircAruvnKk)
+
+While a post's own sound or video plays, the trail's sounds step back.
 
 ### Code and maths
 
@@ -57,8 +68,8 @@ $$
 | AD | *assez difficile* | some code or maths |
 | D · TD · ED | harder and harder | bring snacks |
 
-Each entry gets an alpine grade from its length and how technical it is, a walking time in the style of the yellow signposts, and a hut stamp for your pass once you reach the end.[^stamps]
+Each entry gets an alpine grade from its length and how technical it is, a walking time in the style of the yellow signposts, and a stamp in your logbook once you reach the end.[^stamps]
 
 See you on the trail.
 
-[^stamps]: Stamps and wildlife sightings are kept only in your browser's local storage.
+[^stamps]: Stamps, notes read and things spotted are kept only in your browser's local storage.

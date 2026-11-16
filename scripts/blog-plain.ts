@@ -63,13 +63,18 @@ const element = (tagName: string, properties: Element['properties'], children: E
   children,
 })
 
-/** Pictures, video files and YouTube/Vimeo links (all written with the image syntax), as plain as they come. */
+/** Pictures, sound and video files and YouTube/Vimeo links (all written with the image syntax), as plain as they come. */
 function media(img: Element): Element {
   const src = String(img.properties.src ?? '')
   const alt = String(img.properties.alt ?? '')
   const found = classifyMedia(src)
   if (found.kind === 'video') {
     return element('video', { src: found.src, controls: true, preload: 'metadata', playsInline: true, ariaLabel: alt || undefined })
+  }
+  if (found.kind === 'audio') {
+    return element('audio', { src: found.src, controls: true, preload: 'metadata', ariaLabel: alt || undefined }, [
+      element('a', { href: found.src }, [{ type: 'text', value: `Download the sound${alt ? `: ${alt}` : ''}` }]),
+    ])
   }
   if (found.kind === 'iframe') {
     return element('iframe', {
@@ -86,7 +91,7 @@ function media(img: Element): Element {
 
 const blank = (node: ElementContent) => node.type === 'text' && !node.value.trim()
 
-/** A picture or video on its own line becomes a figure, captioned with its title (or else its description), as on the site. */
+/** A picture, sound or video on its own line becomes a figure, captioned with its title (or else its description), as on the site. */
 function rehypePlainMedia() {
   return (tree: Root) => {
     visit(tree, 'element', (node, index, parent) => {
@@ -141,6 +146,7 @@ a, a:visited { color: #1a56c4; }
 h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 1.5rem; }
 h2, h3 { line-height: 1.3; margin: 2.2rem 0 0.8rem; }
 img, video { max-width: 100%; height: auto; }
+audio { display: block; width: 100%; }
 iframe { width: 100%; height: auto; aspect-ratio: 16 / 9; border: 0; }
 figure { margin: 1.75rem 0; }
 figcaption { margin-top: 0.4rem; font-size: 0.9em; font-style: italic; }
@@ -193,7 +199,7 @@ export function llmsTxt(posts: PlainPost[]) {
     '',
     `> ${profile.role} in ${city}. ${profile.tagline}`,
     '',
-    "The blog's posts as plain Markdown, without the site's pixel-art decoration:",
+    "The blog's posts as plain Markdown, without the site's decoration (a first-person walk through 360° photographs):",
     '',
     '- `/blog/<post>.md` is a post as Markdown (each one is listed below).',
     '- `/blog/<post>/plain` is the same post as a plain web page.',

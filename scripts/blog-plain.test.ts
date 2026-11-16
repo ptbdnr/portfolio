@@ -16,6 +16,8 @@ Intro with [a link](https://example.com), \`code\` and maths $e^{i\\pi} + 1 = 0$
 
 ![A clip](/media/sandpile.mp4)
 
+![Crackling](/media/sandpile-crackle.mp3 "One click per toppling")
+
 ![A talk](https://www.youtube.com/watch?v=aircAruvnKk)
 
 \`\`\`python
@@ -105,11 +107,14 @@ describe('the same Markdown as a plain page, for people', () => {
     expect(html).not.toMatch(/<script|<img[^>]*pixel|class="(?:terminal|camcorder|crt-tv|hut-stamp|altimeter)/)
   })
 
-  it('shows pictures, videos and YouTube links as plain figures with their captions', () => {
+  it('shows pictures, sound, videos and YouTube links as plain figures with their captions', () => {
     expect(article).toContain(
       '<figure><img src="/media/sandpile.png" alt="A photo" loading="lazy" decoding="async"><figcaption>Caption here</figcaption></figure>',
     )
     expect(article).toContain('<video src="/media/sandpile.mp4" controls preload="metadata" playsinline aria-label="A clip"></video><figcaption>A clip</figcaption>')
+    expect(article).toContain(
+      '<figure><audio src="/media/sandpile-crackle.mp3" controls preload="metadata" aria-label="Crackling"><a href="/media/sandpile-crackle.mp3">Download the sound: Crackling</a></audio><figcaption>One click per toppling</figcaption></figure>',
+    )
     expect(article).toMatch(/<iframe src="https:\/\/www\.youtube-nocookie\.com\/embed\/aircAruvnKk" title="A talk"[^>]*><\/iframe>/)
     expect(article).not.toContain('<p><figure>')
   })

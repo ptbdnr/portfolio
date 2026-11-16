@@ -38,3 +38,59 @@ export const box = (type: string, ...children: (Uint8Array | number[] | string)[
   return bytes(be32(body.length + 8), type, body)
 }
 export const movie = (...meta: Uint8Array[]) => bytes(box('ftyp', 'isom', [0, 0, 0, 0]), box('moov', box('mvhd', Array(20).fill(0)), ...meta), box('mdat', [1, 2, 3]))
+
+/* ------------------------------------------------------------------ sound */
+
+const syncsafe = (n: number) => [(n >> 21) & 0x7f, (n >> 14) & 0x7f, (n >> 7) & 0x7f, n & 0x7f]
+const id3frame = (id: string, text: string) => bytes(id, be32(text.length + 1), [0, 0], [0], text)
+/** An MP3 frame's worth of "audio" (a frame header and some bytes). */
+export const mpegFrame = bytes([0xff, 0xfb, 0x90, 0x64], Array(60).fill(0x55))
+
+/** An MP3 from a phone's recorder: ID3v2 tags (with a location) up front, an ID3v1 tag at the end. */
+export function mp3() {
+  const frames = bytes(id3frame('TIT2', 'Morning on the ridge'), id3frame('TXXX', '\0LOCATION\x0046.5,9.4'))
+  const v1 = bytes('TAG', 'Morning'.padEnd(30, '\0'), 'Me'.padEnd(30, '\0'), ''.padEnd(30, '\0'), '2026', ''.padEnd(30, '\0'), [12])
+  return bytes('ID3', [3, 0, 0], syncsafe(frames.length), frames, mpegFrame, mpegFrame, v1)
+}
+
+const riffChunk = (type: string, data: Uint8Array | number[] | string) => {
+  const body = bytes(data)
+  return bytes(type, le32(body.length), body, body.length & 1 ? [0] : [])
+}
+
+/** A WAV from a field recorder: INFO tags, a Broadcast WAV block and iXML with a location. */
+export function wav() {
+  const body = bytes(
+    'WAVE',
+    riffChunk('fmt ', [1, 0, 1, 0, 0x44, 0xac, 0, 0, 0x88, 0x58, 1, 0, 2, 0, 16, 0]),
+    riffChunk('LIST', bytes('INFO', riffChunk('INAM', 'Home recording\0'))),
+    riffChunk('bext', 'Zoom H5, 2026-11-15 07:12'),
+    riffChunk('iXML', '<BWFXML><LOCATION>51.5072,-0.1276</LOCATION></BWFXML>'),
+    riffChunk('data', [1, 2, 3, 4, 5, 6]),
+  )
+  return bytes('RIFF', le32(body.length), body)
+}
+
+const flacBlock = (type: number, last: boolean, data: Uint8Array | number[] | string) => {
+  const body = bytes(data)
+  return bytes([(last ? 0x80 : 0) | type, (body.length >> 16) & 255, (body.length >> 8) & 255, body.length & 255], body)
+}
+const vorbisComments = (vendor: string, comments: string[]) =>
+  bytes(le32(vendor.length), vendor, le32(comments.length), ...comments.map((c) => bytes(le32(c.length), c)))
+
+/** A FLAC with tags (one a location) and a cover picture. */
+export function flac(tags = ['LOCATION=Aosta', 'TITLE=Stream']) {
+  return bytes(
+    'fLaC',
+    flacBlock(0, false, Array(34).fill(7)),
+    flacBlock(4, false, vorbisComments('reference libFLAC 1.4.3', tags)),
+    flacBlock(6, true, bytes(Array(12).fill(0), 'image/jpeg', Array(20).fill(9))),
+    [0xff, 0xf8, 0x69, 0x08, 1, 2, 3],
+  )
+}
+
+const oggPage = (packet: Uint8Array) => bytes('OggS', [0, 0], Array(8).fill(0), [1, 0, 0, 0], Array(8).fill(0), [1, packet.length], packet)
+
+/** An Opus file whose comments say where it was recorded. */
+export const opus = (comments = ['LOCATION=51.5,-0.1']) =>
+  bytes(oggPage(bytes('OpusHead', [1, 1, 0x38, 1, 0x80, 0xbb, 0, 0, 0, 0, 0])), oggPage(bytes('OpusTags', vorbisComments('Lavf61', comments))), oggPage(bytes([1, 2, 3])))

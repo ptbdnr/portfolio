@@ -27,7 +27,9 @@ export type Post = {
   words: number
   minutes: number
   grade: Grade
-  /** Teletext page number, e.g. 201. */
+  /** Where on the trail the post is pinned (a scene id), if the post says; otherwise its season decides. */
+  scene?: string
+  /** A stable number for the post, oldest first: P201, P202… */
   page: number
 }
 
@@ -109,6 +111,7 @@ export function buildPost(path: string, source: string): Omit<Post, 'page'> & { 
     cover: data.cover ? asString(data.cover) : undefined,
     coverAlt: data.coverAlt ? asString(data.coverAlt) : undefined,
     draft: data.draft === true,
+    ...(data.scene ? { scene: asString(data.scene).toLowerCase() } : {}),
     body,
     words,
     minutes,
@@ -122,7 +125,7 @@ export function withoutBody<T extends { body: string }>({ body, ...meta }: T): O
   return meta
 }
 
-/** Sort newest first and assign stable teletext page numbers (oldest = P201). */
+/** Sort newest first and assign stable page numbers (oldest = P201). */
 export function finalizePosts(posts: Omit<Post, 'page'>[], includeDrafts = false): Post[] {
   const visible = posts.filter((p) => includeDrafts || !p.draft)
   const oldestFirst = [...visible].sort((a, b) => a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug))

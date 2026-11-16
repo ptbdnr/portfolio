@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { camcorderDate, classifyMedia } from './media.ts'
+import { classifyMedia, clock } from './media.ts'
 
 describe('classifyMedia', () => {
   it('detects local video files', () => {
     expect(classifyMedia('/media/clip.mp4')).toEqual({ kind: 'video', src: '/media/clip.mp4' })
     expect(classifyMedia('https://cdn.example.com/a.webm?x=1').kind).toBe('video')
+    expect(classifyMedia('/media/phone.MOV').kind).toBe('video')
+  })
+
+  it('detects sound files', () => {
+    expect(classifyMedia('/media/birdsong.mp3')).toEqual({ kind: 'audio', src: '/media/birdsong.mp3' })
+    for (const ext of ['m4a', 'aac', 'ogg', 'oga', 'opus', 'wav', 'flac', 'MP3']) expect(classifyMedia(`/media/a.${ext}`).kind).toBe('audio')
+    expect(classifyMedia('https://cdn.example.com/talk.m4a?dl=1').kind).toBe('audio')
+    expect(classifyMedia('/media/mp3-cover.png').kind).toBe('image')
   })
 
   it('turns YouTube links into privacy-friendly embeds', () => {
@@ -30,9 +38,11 @@ describe('classifyMedia', () => {
   })
 })
 
-describe('camcorderDate', () => {
-  it('formats like a 90s camcorder stamp', () => {
-    expect(camcorderDate('2026-11-10')).toBe('NOV 10 2026')
-    expect(camcorderDate('not a date')).toBe('')
+describe('clock', () => {
+  it('shows minutes and seconds', () => {
+    expect(clock(0)).toBe('0:00')
+    expect(clock(65.4)).toBe('1:05')
+    expect(clock(3601)).toBe('60:01')
+    expect(clock(Number.NaN)).toBe('0:00')
   })
 })

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp } from './app.ts'
+import { createApp, soundType } from './app.ts'
 import { loadConfig } from './config.ts'
 import type { Mailer } from './mailer.ts'
 import { formatEmail } from './mailer.ts'
@@ -117,13 +117,13 @@ describe('stats API', () => {
     expect([first.visitors, again.visitors, other.visitors]).toEqual([1, 1, 2])
   })
 
-  it('records sightings only for known species', async () => {
+  it('records sightings only for things in the field guide', async () => {
     const { app } = setup()
-    expect((await post(app, '/api/stats/sighting', { species: 'marmot' })).status).toBe(200)
-    expect((await post(app, '/api/stats/sighting', { species: 'marmot' }, '198.51.100.2')).status).toBe(200)
-    expect((await post(app, '/api/stats/sighting', { species: 'dragon' })).status).toBe(400)
+    expect((await post(app, '/api/stats/sighting', { spot: 'larch' })).status).toBe(200)
+    expect((await post(app, '/api/stats/sighting', { spot: 'larch' }, '198.51.100.2')).status).toBe(200)
+    expect((await post(app, '/api/stats/sighting', { spot: 'dragon' })).status).toBe(400)
     const stats = await json(await app.request('/api/stats'))
-    expect(stats.sightings).toEqual({ marmot: 2 })
+    expect(stats.sightings).toEqual({ larch: 2 })
   })
 
   it('answers unknown API routes with JSON 404', async () => {
@@ -144,12 +144,12 @@ describe('file store', () => {
     dir = await mkdtemp(path.join(tmpdir(), 'hut-store-'))
     const store = createFileStore(dir, 5)
     await store.recordVisit()
-    await store.recordSighting('ibex')
+    await store.recordSighting('kelp')
     await store.saveMessage({ ...validBody, topic: 'hello', id: 'x', receivedAt: 'now' } as StoredMessage)
     await store.flush()
 
     const reopened = createFileStore(dir)
-    expect(await reopened.getStats()).toEqual({ visitors: 1, sightings: { ibex: 1 } })
+    expect(await reopened.getStats()).toEqual({ visitors: 1, sightings: { kelp: 1 } })
     const lines = (await readFile(path.join(dir, 'messages.jsonl'), 'utf8')).trim().split('\n')
     expect(JSON.parse(lines[0]).id).toBe('x')
   })
@@ -185,6 +185,25 @@ describe('static frontend', () => {
     expect(home.status).toBe(200)
     expect(home.headers.get('cache-control')).toBe('no-cache')
     expect(home.headers.get('content-security-policy')).toContain("frame-src https://www.youtube-nocookie.com")
+  })
+
+  it('labels sound files so every browser plays them', async () => {
+    const app = await staticApp()
+    await mkdir(path.join(dir, 'media'), { recursive: true })
+    for (const [name, type] of [
+      ['memo.m4a', 'audio/mp4'],
+      ['field.wav', 'audio/wav'],
+      ['stream.flac', 'audio/flac'],
+      ['night.ogg', 'audio/ogg'],
+      ['ridge.mp3', 'audio/mpeg'],
+    ]) {
+      await writeFile(path.join(dir, 'media', name), 'sound')
+      const res = await app.request(`/media/${name}`)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toBe(type)
+    }
+    expect(soundType('/media/a.OPUS')).toBe('audio/ogg; codecs=opus')
+    expect(soundType('/media/a.png')).toBeNull()
   })
 
   it('falls back to the app shell for client routes but 404s missing files', async () => {

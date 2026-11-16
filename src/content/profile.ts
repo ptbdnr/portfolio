@@ -51,14 +51,14 @@ export type Chapter = {
   lat: number
 }
 
-/** Places that shaped me, in order. Drawn as a dotted route on the pixel map. */
+/** Places that shaped me, in order. Drawn as a route on the map. */
 export const chapters: Chapter[] = [
   {
     id: 'hungary',
     place: 'Hungary',
     when: 'Early years',
     title: 'Where it started',
-    text: 'I grew up with the Rubik’s Cube (a Hungarian invention), teletext and 8-bit home computers. That probably explains this website.',
+    text: 'I grew up with the Rubik’s Cube (a Hungarian invention), teletext and 8-bit home computers. That probably explains why this site has always been a little game.',
     greeting: 'Szia!',
     lon: 19.4,
     lat: 47.2,

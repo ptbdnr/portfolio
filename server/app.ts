@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { contactSchema, type ContactResponse } from '../shared/contact.ts'
 import { withBlogIndex } from '../shared/liveBlog.ts'
 import { LLMS_TXT, MARKDOWN_TYPE, markdownAlternate, markdownPath, prefersMarkdown, withMarkdownLink } from '../shared/markdownAlternates.ts'
-import { isSpeciesId } from '../shared/species.ts'
+import { isSightingId } from '../shared/sightings.ts'
 import type { Config } from './config.ts'
 import { createLiveBlog } from './liveBlog.ts'
 import type { Mailer } from './mailer.ts'
@@ -49,6 +49,23 @@ async function readJson(c: Context): Promise<unknown> {
   } catch {
     return undefined
   }
+}
+
+const SOUND_TYPES: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  wav: 'audio/wav',
+  flac: 'audio/flac',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg; codecs=opus',
+}
+
+/** The type to label a sound file with, by its name. */
+export function soundType(path: string) {
+  const ext = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase()
+  return ext ? (SOUND_TYPES[ext] ?? null) : null
 }
 
 /** The blog's Markdown that the build wrote alongside the site (/llms.txt and /blog/<slug>.md), by address. */
@@ -181,13 +198,11 @@ export function createApp({ config, store, mailer, logger = console, now = Date.
   app.post('/api/stats/sighting', bodyLimit({ maxSize: 1024 }), async (c) => {
     const ip = clientIp(c, config.trustProxy)
     if (!statsLimiter.hit(ip)) return c.json({ error: 'slow down' }, 429)
-    const body = (await readJson(c)) as { species?: unknown } | undefined
-    const species = body?.species
-    if (!isSpeciesId(species)) return c.json({ error: 'unknown species' }, 400)
-    const count = sightingSeen.hit(`${ip}:${species}`)
-      ? await store.recordSighting(species)
-      : ((await store.getStats()).sightings[species] ?? 0)
-    return c.json({ species, count })
+    const body = (await readJson(c)) as { spot?: unknown } | undefined
+    const spot = body?.spot
+    if (!isSightingId(spot)) return c.json({ error: 'unknown spot' }, 400)
+    const count = sightingSeen.hit(`${ip}:${spot}`) ? await store.recordSighting(spot) : ((await store.getStats()).sightings[spot] ?? 0)
+    return c.json({ spot, count })
   })
 
   // The blog read live from the content folder (CONTENT_DIR), rather than the posts built into the site.
@@ -230,6 +245,9 @@ export function createApp({ config, store, mailer, logger = console, now = Date.
       if (!c.res.ok) return
       // Shown in the browser as text rather than downloaded (there's no .md in the usual list of types).
       if (c.req.path.endsWith('.md')) c.header('Content-Type', MARKDOWN_TYPE)
+      // Sound files the static server has no type for (Safari won't play them unlabelled).
+      const sound = soundType(c.req.path)
+      if (sound) c.header('Content-Type', sound)
       if (c.req.path.startsWith('/assets/')) c.header('Cache-Control', 'public, max-age=31536000, immutable')
       else if (/^text\/(html|markdown|plain)/.test(c.res.headers.get('content-type') ?? '')) c.header('Cache-Control', 'no-cache')
     })
@@ -266,6 +284,8 @@ export function createApp({ config, store, mailer, logger = console, now = Date.
         const response = await serveStatic({ path: found.file })(c, next)
         // QuickTime and M4V movies are MP4 inside: labelled as such, browsers play them.
         if (/\.(mov|m4v)$/i.test(rel)) c.header('Content-Type', 'video/mp4')
+        const sound = soundType(rel)
+        if (sound) c.header('Content-Type', sound)
         return response
       })
     }

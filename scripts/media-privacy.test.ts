@@ -63,3 +63,53 @@ describe('videos', () => {
     expect(findMetadata(movie(box('udta', box('\u00a9too', 'Lavf61'))), '.mp4')).toEqual([])
   })
 })
+
+describe('sound', () => {
+  it('finds and empties the tags a recorder leaves in an MP3, without moving the audio', async () => {
+    const { mp3, mpegFrame } = await import('./media-fixtures.ts')
+    const original = mp3()
+    expect(findMetadata(original, '.mp3')).toEqual(['ID3 tags'])
+    const clean = stripMetadata(original, '.mp3')
+    expect(findMetadata(clean, '.mp3')).toEqual([])
+    expect(clean.length).toBe(original.length)
+    const text = Buffer.from(clean).toString('latin1')
+    expect(text).not.toContain('LOCATION')
+    expect(text).not.toContain('Morning')
+    expect(Buffer.from(clean).includes(Buffer.from(mpegFrame))).toBe(true)
+    expect(stripMetadata(clean, '.mp3')).toEqual(clean)
+  })
+
+  it('turns a WAV’s recording details (INFO, bext, iXML) into padding', async () => {
+    const { wav } = await import('./media-fixtures.ts')
+    const original = wav()
+    expect(findMetadata(original, '.wav')).toEqual(['recording details (LIST, bext, iXML)'])
+    const clean = stripMetadata(original, '.wav')
+    expect(findMetadata(clean, '.wav')).toEqual([])
+    expect(clean.length).toBe(original.length)
+    const text = Buffer.from(clean).toString('latin1')
+    expect(text).not.toMatch(/LOCATION|Zoom|Home recording/)
+    expect(text).toContain('fmt ')
+    expect(text).toContain('data')
+  })
+
+  it('turns a FLAC’s tags and cover picture into padding, but passes a FLAC with only its encoder’s name', async () => {
+    const { flac } = await import('./media-fixtures.ts')
+    expect(findMetadata(flac(), '.flac').sort()).toEqual(['cover picture', 'tags'])
+    const clean = stripMetadata(flac(), '.flac')
+    expect(findMetadata(clean, '.flac')).toEqual([])
+    expect(Buffer.from(clean).toString('latin1')).not.toContain('Aosta')
+    // The last block is still marked as the last one.
+    expect(clean.length).toBe(flac().length)
+    expect(findMetadata(stripMetadata(flac([]), '.flac'), '.flac')).toEqual([])
+  })
+
+  it('spots comments in Ogg and Opus files (ffmpeg cleans those)', async () => {
+    const { opus } = await import('./media-fixtures.ts')
+    expect(findMetadata(opus(), '.opus')).toEqual(['tags'])
+    expect(findMetadata(opus([]), '.ogg')).toEqual([])
+  })
+
+  it('treats an M4A voice memo like a phone video', () => {
+    expect(findMetadata(movie(box('udta', box('\u00a9xyz', '+51.5072-000.1276/'))), '.m4a')).toContain('GPS location')
+  })
+})

@@ -1,321 +1,226 @@
+/**
+ * The game's state: where you are, what you've found and read, your photos and settings. Progress
+ * and settings are kept in this browser only (localStorage); nothing is sent anywhere.
+ */
 import { useSyncExternalStore } from 'react'
-import type { SpeciesId } from '../../shared/species.ts'
-import { BADGE_BY_ID, type BadgeId } from '../content/badges.ts'
-import { EDELWEISS_TOTAL, SPECIES, SPECIES_BY_ID } from '../content/species.ts'
-import type { ClimberMode } from '../game/engine/actors.ts'
-import type { Season } from '../game/engine/palettes.ts'
-import type { Zone } from '../game/engine/renderer.ts'
-import type { Biome, Route } from '../game/engine/world.ts'
-import { api } from './api.ts'
-import { sfx } from './sfx.ts'
-
-export type Theme = 'auto' | 'day' | 'night'
+import { FIRST_SCENE, SCENES, SCENE_BY_ID, type NoteId, type SceneId } from '../content/trail.ts'
+import { BADGES, earnedBadges, type BadgeId } from '../content/badges.ts'
 
 export type Settings = {
   sound: boolean
-  /** Old-TV scanlines over the scenery. */
-  crt: boolean
-  wildlife: boolean
-  season: 'auto' | Season
-  theme: Theme
-  /** Plain reading layout without the game. */
+  volume: number
+  /** 'auto' follows the system's reduced-motion setting. */
+  motion: 'auto' | 'full' | 'reduced'
+  /** The plain page, without the 3D walk. */
   simple: boolean
 }
 
-export type Choices = {
-  route: Route
-  hut: 'inside' | 'outside' | null
-}
-
-export type Toast = {
-  id: number
-  kind: 'spot' | 'badge' | 'info'
-  title: string
-  body?: string
-  species?: SpeciesId
-  icon?: string
-}
-
-export type Live = {
-  altitude: number
-  f: number
-  season: Season
-  biome: Biome
-  daylight: number
-  zone: Zone
-  mode: ClimberMode
-}
-
-/** Progress inside the current challenges (not saved: they can be replayed). */
 export type Progress = {
-  holds: number
-  holdsTotal: number
-  bounces: number
-  jump: 'idle' | 'failed' | 'done'
+  visited: SceneId[]
+  notes: NoteId[]
+  spots: string[]
+  /** Posts read to the end, by slug: when. */
+  stamps: Record<string, number>
+  /** Times of day seen at places that have them (variant keys). */
+  seen: string[]
+  signed: boolean
+  photos: number
+  badges: BadgeId[]
 }
 
-export type Panel = null | 'album' | 'settings' | 'help'
+export type Panel =
+  | { kind: 'note'; id: NoteId }
+  | { kind: 'place' }
+  | { kind: 'map' }
+  | { kind: 'guide' }
+  | { kind: 'photos' }
+  | { kind: 'menu' }
+  | { kind: 'help' }
+
+export type Toast = { id: number; title: string; body?: string; icon?: string }
 
 export type GameState = {
   settings: Settings
-  choices: Choices
-  badges: Partial<Record<BadgeId, number>>
-  spotted: Partial<Record<SpeciesId, number>>
-  edelweiss: number[]
-  stamps: Record<string, number>
-  onboarded: boolean
-  live: Live
   progress: Progress
+  scene: SceneId
+  variant: string | null
+  /** Walking, travelling or the light changing. */
+  moving: boolean
+  /** The title screen has been dismissed. */
+  started: boolean
+  panel: Panel | null
   toasts: Toast[]
-  panel: Panel
-  reducedMotion: boolean
-  systemDark: boolean
-  hoverInteractive: boolean
+  /** Shown big in the middle while travelling ("Some time later…"). */
+  caption: string | null
+  systemReducedMotion: boolean
+  /** The 3D view couldn't start (no WebGL 2): the simple view is used instead. */
+  noWebgl: boolean
 }
 
-const STORAGE_KEY = 'hut2hut:v2'
-const LEGACY_KEY = 'hut2hut:v1'
+const STORAGE_KEY = 'hut2hut:v3'
 
-export const DEFAULT_SETTINGS: Settings = {
-  sound: false,
-  crt: true,
-  wildlife: true,
-  season: 'auto',
-  theme: 'auto',
-  simple: false,
-}
+export const DEFAULT_SETTINGS: Settings = { sound: false, volume: 0.8, motion: 'auto', simple: false }
+const EMPTY_PROGRESS: Progress = { visited: [], notes: [], spots: [], stamps: {}, seen: [], signed: false, photos: 0, badges: [] }
 
-type Persisted = Pick<GameState, 'settings' | 'choices' | 'badges' | 'spotted' | 'edelweiss' | 'stamps' | 'onboarded'>
+const isScene = (id: unknown): id is SceneId => typeof id === 'string' && SCENE_BY_ID.has(id as SceneId)
+const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
 
-function readJSON(key: string): Record<string, unknown> | null {
+/** Saved state, checked field by field (it may come from an older version, or be edited by hand). */
+export function parseSaved(raw: string | null): { settings: Settings; progress: Progress; scene: SceneId } {
+  let saved: Record<string, unknown> = {}
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
     const value: unknown = raw ? JSON.parse(raw) : null
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+    if (value && typeof value === 'object') saved = value as Record<string, unknown>
+  } catch {
+    // A broken save starts afresh.
+  }
+  const s = (saved.settings ?? {}) as Partial<Settings>
+  const p = (saved.progress ?? {}) as Partial<Progress>
+  const stamps: Record<string, number> = {}
+  if (p.stamps && typeof p.stamps === 'object') {
+    for (const [slug, at] of Object.entries(p.stamps)) if (typeof at === 'number') stamps[slug] = at
+  }
+  return {
+    settings: {
+      sound: s.sound === true,
+      volume: typeof s.volume === 'number' && s.volume >= 0 && s.volume <= 1 ? s.volume : DEFAULT_SETTINGS.volume,
+      motion: s.motion === 'full' || s.motion === 'reduced' ? s.motion : 'auto',
+      simple: s.simple === true,
+    },
+    progress: {
+      visited: strings(p.visited).filter(isScene),
+      notes: strings(p.notes) as NoteId[],
+      spots: strings(p.spots),
+      stamps,
+      seen: strings(p.seen),
+      signed: p.signed === true,
+      photos: typeof p.photos === 'number' ? Math.max(0, Math.floor(p.photos)) : 0,
+      badges: strings(p.badges).filter((b): b is BadgeId => BADGES.some((x) => x.id === b)),
+    },
+    scene: isScene(saved.scene) ? saved.scene : FIRST_SCENE,
+  }
+}
+
+function readStorage() {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage.getItem(STORAGE_KEY)
   } catch {
     return null
   }
 }
 
-/** Loads saved progress, upgrading the first version's format if that's all there is. */
-export function load(): Partial<Persisted> {
-  const saved = readJSON(STORAGE_KEY)
-  if (saved) return saved as Partial<Persisted>
-  const old = readJSON(LEGACY_KEY)
-  if (!old) return {}
-  const oldSettings = (old.settings ?? {}) as Record<string, unknown>
-  const sky = oldSettings.sky
-  const badges: Partial<Record<BadgeId, number>> = {}
-  const secrets = (old.secrets ?? {}) as Record<string, number>
-  if (secrets.konami) badges.yeti = secrets.konami
-  if (secrets.signed) badges.messenger = secrets.signed
-  return {
-    settings: {
-      ...DEFAULT_SETTINGS,
-      sound: oldSettings.sound === true,
-      crt: oldSettings.crt !== false,
-      wildlife: oldSettings.wildlife !== false,
-      season: (oldSettings.season as Settings['season']) ?? 'auto',
-      theme: sky === 'day' || sky === 'night' ? sky : 'auto',
-    },
-    spotted: (old.spotted ?? {}) as Persisted['spotted'],
-    edelweiss: Array.isArray(old.edelweiss) ? (old.edelweiss as number[]) : [],
-    stamps: (old.stamps ?? {}) as Persisted['stamps'],
-    badges,
-  }
+const media = (q: string) => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(q) : null)
+const saved = parseSaved(readStorage())
+
+let state: GameState = {
+  settings: saved.settings,
+  progress: saved.progress,
+  scene: saved.scene,
+  variant: null,
+  moving: false,
+  started: false,
+  panel: null,
+  toasts: [],
+  caption: null,
+  systemReducedMotion: media('(prefers-reduced-motion: reduce)')?.matches ?? false,
+  noWebgl: false,
 }
 
-const media = (q: string) => typeof window !== 'undefined' && window.matchMedia?.(q).matches === true
-
-function initial(): GameState {
-  const saved = load()
-  return {
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings },
-    choices: { route: 'rocks', hut: null, ...saved.choices },
-    badges: saved.badges ?? {},
-    spotted: saved.spotted ?? {},
-    edelweiss: Array.isArray(saved.edelweiss) ? saved.edelweiss : [],
-    stamps: saved.stamps ?? {},
-    onboarded: saved.onboarded === true,
-    live: { altitude: 0, f: 0, season: 'summer', biome: 'sea', daylight: 1, zone: null, mode: 'surf' },
-    progress: { holds: 0, holdsTotal: 3, bounces: 0, jump: 'idle' },
-    toasts: [],
-    panel: null,
-    reducedMotion: media('(prefers-reduced-motion: reduce)'),
-    systemDark: media('(prefers-color-scheme: dark)'),
-    hoverInteractive: false,
-  }
-}
-
-let state = initial()
 const listeners = new Set<() => void>()
 let saveTimer: ReturnType<typeof setTimeout> | null = null
-let toastId = 1
+let toastId = 0
 
-function persist() {
+function save() {
   if (saveTimer) return
   saveTimer = setTimeout(() => {
     saveTimer = null
     try {
-      const { settings, choices, badges, spotted, edelweiss, stamps, onboarded } = state
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, choices, badges, spotted, edelweiss, stamps, onboarded }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings: state.settings, progress: state.progress, scene: state.scene }))
     } catch {
-      // Private mode or storage full: progress simply won't persist.
+      // Private mode or full storage: progress just isn't kept.
     }
   }, 250)
 }
 
-function set(patch: Partial<GameState> | ((s: GameState) => Partial<GameState>), save = true) {
+function set(patch: Partial<GameState> | ((s: GameState) => Partial<GameState>)) {
   const next = typeof patch === 'function' ? patch(state) : patch
   state = { ...state, ...next }
-  if (save) persist()
-  for (const l of listeners) l()
+  if ('settings' in next || 'progress' in next || 'scene' in next) save()
+  listeners.forEach((l) => l())
 }
 
-/** Whether the scene should be at night right now. */
-export const isNight = (s: GameState) => s.settings.theme === 'night' || (s.settings.theme === 'auto' && s.systemDark)
+/** Records progress and announces any badge it earns. */
+function progress(update: (p: Progress) => Partial<Progress>) {
+  set((s) => {
+    const next = { ...s.progress, ...update(s.progress) }
+    const earned = earnedBadges(next).filter((b) => !next.badges.includes(b))
+    if (!earned.length) return { progress: next }
+    const toasts = [...s.toasts]
+    for (const id of earned) {
+      const badge = BADGES.find((b) => b.id === id)!
+      toasts.push({ id: ++toastId, title: `Badge: ${badge.title}`, body: badge.done, icon: badge.icon })
+    }
+    return { progress: { ...next, badges: [...next.badges, ...earned] }, toasts: toasts.slice(-4) }
+  })
+}
 
-const PHOTOGRAPHER_AT = 5
+const add = <T,>(list: T[], item: T) => (list.includes(item) ? list : [...list, item])
 
 export const game = {
   get: () => state,
   subscribe(listener: () => void) {
     listeners.add(listener)
-    return () => listeners.delete(listener)
+    return () => void listeners.delete(listener)
   },
-
-  setSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
-    set((s) => ({ settings: { ...s.settings, [key]: value } }))
-    if (key === 'sound') {
-      sfx.setEnabled(Boolean(value))
-      if (value) sfx.play('select')
-    }
+  start: () => set({ started: true }),
+  arrive(scene: SceneId, variant: string | null) {
+    set({ scene, variant, moving: false })
+    progress((p) => ({ visited: add(p.visited, scene), seen: variant ? add(p.seen, variant) : p.seen }))
   },
-
-  /** Flip between day and night, from whatever is showing now. */
-  toggleNight() {
-    const night = !isNight(state)
-    // Matching the system preference means "auto" keeps following it later.
-    const theme: Theme = night === state.systemDark ? 'auto' : night ? 'night' : 'day'
-    game.setSetting('theme', theme)
-    if (night) game.badge('nightwalker')
+  setMoving: (moving: boolean) => set({ moving }),
+  setVariant(variant: string | null) {
+    set({ variant })
+    if (variant) progress((p) => ({ seen: add(p.seen, variant) }))
   },
-
-  setChoice<K extends keyof Choices>(key: K, value: Choices[K]) {
-    if (state.choices[key] === value) return
-    set((s) => ({ choices: { ...s.choices, [key]: value } }))
-    if (key === 'hut' && value === 'inside') game.badge('hut')
-    if (key === 'route' && value === 'lake') game.badge('lake')
+  open: (panel: Panel) => set({ panel }),
+  close: () => set({ panel: null }),
+  readNote(id: NoteId) {
+    progress((p) => ({ notes: add(p.notes, id) }))
   },
-
-  setOnboarded() {
-    if (!state.onboarded) set({ onboarded: true })
-  },
-
-  setLive(live: Live) {
-    const prev = state.live
-    if (
-      prev.altitude === live.altitude &&
-      prev.season === live.season &&
-      prev.biome === live.biome &&
-      prev.zone === live.zone &&
-      prev.mode === live.mode &&
-      Math.abs(prev.daylight - live.daylight) < 0.05 &&
-      Math.abs(prev.f - live.f) < 0.002
-    ) {
-      return
-    }
-    set({ live }, false)
-    if (live.f > 0.978 && !state.badges.summit) game.badge('summit')
-  },
-
-  setProgress(patch: Partial<Progress>) {
-    set((s) => ({ progress: { ...s.progress, ...patch } }), false)
-  },
-
-  setHover(hoverInteractive: boolean) {
-    if (state.hoverInteractive !== hoverInteractive) set({ hoverInteractive }, false)
-  },
-
-  /** Record a sighting; returns true if this species is new to the visitor's photo album. */
-  spot(id: SpeciesId, edelweissIndex?: number) {
-    const isNew = !state.spotted[id]
-    if (id === 'edelweiss' && edelweissIndex !== undefined && !state.edelweiss.includes(edelweissIndex)) {
-      const edelweiss = [...state.edelweiss, edelweissIndex]
-      set({ edelweiss })
-      if (!isNew) {
-        game.toast({
-          kind: 'spot',
-          species: 'edelweiss',
-          title: `Edelweiss ${edelweiss.length} of ${EDELWEISS_TOTAL}`,
-          body: 'Photographed, not picked.',
-        })
-      }
-      if (edelweiss.length >= EDELWEISS_TOTAL) game.badge('botanist')
-    }
-    if (!isNew) return false
-    set((s) => ({ spotted: { ...s.spotted, [id]: Date.now() } }))
-    const info = SPECIES_BY_ID[id]
-    const count = SPECIES.filter((sp) => !sp.secret && state.spotted[sp.id]).length
-    game.toast({ kind: 'spot', species: id, title: info.name, body: `Added to your photo album (${count} so far)` })
-    sfx.play('coin')
-    void api.sighting(id)
-    if (count >= PHOTOGRAPHER_AT) game.badge('photographer')
+  /** A thing spotted in the photos; true the first time. */
+  spot(id: string) {
+    if (state.progress.spots.includes(id)) return false
+    progress((p) => ({ spots: add(p.spots, id) }))
     return true
   },
-
-  /** A post was read to the end. */
   stamp(slug: string) {
-    if (state.stamps[slug]) return
-    set((s) => ({ stamps: { ...s.stamps, [slug]: Date.now() } }))
-    game.badge('reader')
+    if (state.progress.stamps[slug]) return
+    progress((p) => ({ stamps: { ...p.stamps, [slug]: Date.now() } }))
   },
-
-  badge(id: BadgeId) {
-    if (state.badges[id]) return false
-    set((s) => ({ badges: { ...s.badges, [id]: Date.now() } }))
-    const info = BADGE_BY_ID[id]
-    game.toast({ kind: 'badge', icon: info.icon, title: `Badge: ${info.title}`, body: info.done })
-    sfx.play('fanfare')
-    return true
-  },
-
+  signed: () => progress(() => ({ signed: true })),
+  tookPhoto: () => progress((p) => ({ photos: p.photos + 1 })),
   toast(t: Omit<Toast, 'id'>) {
-    const toast = { ...t, id: toastId++ }
-    set((s) => ({ toasts: [...s.toasts.slice(-2), toast] }), false)
+    set((s) => ({ toasts: [...s.toasts, { ...t, id: ++toastId }].slice(-4) }))
   },
-
-  dismiss(id: number) {
-    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }), false)
-  },
-
-  openPanel(panel: Panel) {
-    set({ panel }, false)
-  },
-
-  setReducedMotion(reducedMotion: boolean) {
-    set({ reducedMotion }, false)
-  },
-
-  setSystemDark(systemDark: boolean) {
-    set({ systemDark }, false)
-  },
-
+  dismissToast: (id: number) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  setCaption: (caption: string | null) => set({ caption }),
+  settings: (patch: Partial<Settings>) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+  noWebgl: () => set({ noWebgl: true }),
+  setSystemReducedMotion: (on: boolean) => set({ systemReducedMotion: on }),
+  /** Forget everything found and read (settings stay, and so does where you are). */
   resetProgress() {
-    set({ spotted: {}, edelweiss: [], stamps: {}, badges: {}, choices: { route: 'rocks', hut: null } })
+    set({ progress: EMPTY_PROGRESS })
   },
 }
 
-if (typeof window !== 'undefined' && window.matchMedia) {
-  window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', (e) => game.setReducedMotion(e.matches))
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', (e) => game.setSystemDark(e.matches))
+export function useGame<T>(select: (s: GameState) => T): T {
+  return useSyncExternalStore(game.subscribe, () => select(state), () => select(state))
 }
-sfx.setEnabled(state.settings.sound)
 
-export function useGame<T>(selector: (s: GameState) => T): T {
-  return useSyncExternalStore(
-    game.subscribe,
-    () => selector(state),
-    () => selector(state),
-  )
-}
+export const reducedMotion = (s: GameState) => s.settings.motion === 'reduced' || (s.settings.motion === 'auto' && s.systemReducedMotion)
+
+/** Every spot in the trail (for counting). */
+export const ALL_SPOTS = SCENES.flatMap((s) => s.spots.map((spot) => ({ ...spot, scene: s.id })))
+export const ALL_NOTES = SCENES.flatMap((s) => s.notes.map((n) => ({ ...n, scene: s.id })))
+
+media('(prefers-reduced-motion: reduce)')?.addEventListener?.('change', (e) => game.setSystemReducedMotion(e.matches))
